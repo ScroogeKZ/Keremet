@@ -1,0 +1,24 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "Система управления грузоперевозками на чистом PHP.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node start.js",
+    "start": "node start.js",
+    "build": "echo \"Build complete - PHP application ready\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.1",
+    "@types/memoizee": "^0.4.12",
+    "drizzle-kit": "^0.31.4",
+    "drizzle-orm": "^0.44.3",
+    "express": "^5.1.0",
+    "memoizee": "^0.4.17",
+    "openid-client": "^6.6.2"
+  }
+}

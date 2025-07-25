@@ -1,0 +1,13 @@
+{
+    "name": "khrom-kz/logistics",
+    "description": "Хром-KZ Логистика - Shipment Management System",
+    "type": "project",
+    "require": {
+        "php": ">=8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    }
+}
