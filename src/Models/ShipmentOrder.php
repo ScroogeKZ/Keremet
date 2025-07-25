@@ -278,4 +278,31 @@ class ShipmentOrder {
             return [];
         }
     }
+    
+    public function getStatistics() {
+        $sql = "SELECT 
+            COUNT(*) as total_orders,
+            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_orders,
+            SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END) as processing_orders,
+            SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) as new_orders,
+            SUM(COALESCE(shipping_cost, 0)) as total_revenue,
+            AVG(COALESCE(shipping_cost, 0)) as avg_order_value
+        FROM shipment_orders";
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error getting statistics: " . $e->getMessage());
+            return [
+                'total_orders' => 0,
+                'completed_orders' => 0,
+                'processing_orders' => 0,
+                'new_orders' => 0,
+                'total_revenue' => 0,
+                'avg_order_value' => 0
+            ];
+        }
+    }
 }

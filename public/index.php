@@ -74,8 +74,8 @@ use App\Auth;
                     <a href="/client/login.php" class="bg-green-600 text-white px-4 py-3 rounded-xl font-medium hover:bg-green-700 transition-all duration-200">
                         Личный кабинет
                     </a>
-                    <a href="/admin/login.php" class="text-gray-600 hover:text-primary font-medium px-4 py-3 rounded-xl hover:bg-gray-100 transition-all duration-200">
-                        Вход в систему
+                    <a href="/crm/login.php" class="text-gray-600 hover:text-primary font-medium px-4 py-3 rounded-xl hover:bg-gray-100 transition-all duration-200">
+                        CRM Система
                     </a>
                 </div>
             </div>
@@ -88,8 +88,8 @@ use App\Auth;
                     <a href="/client/login.php" class="bg-green-600 text-white px-4 py-3 rounded-xl font-medium text-center hover:bg-green-700">
                         Личный кабинет
                     </a>
-                    <a href="/admin/login.php" class="text-gray-600 hover:text-primary font-medium px-4 py-3 rounded-xl hover:bg-gray-100 text-center">
-                        Вход в систему
+                    <a href="/crm/login.php" class="text-gray-600 hover:text-primary font-medium px-4 py-3 rounded-xl hover:bg-gray-100 text-center">
+                        CRM Система
                     </a>
                 </div>
             </div>
