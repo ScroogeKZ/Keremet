@@ -305,4 +305,50 @@ class ShipmentOrder {
             ];
         }
     }
+
+    public function getFiltered($filters = []) {
+        $sql = "SELECT * FROM shipment_orders WHERE 1=1";
+        $params = [];
+        
+        if (isset($filters['order_type']) && !empty($filters['order_type'])) {
+            $sql .= " AND order_type = :order_type";
+            $params[':order_type'] = $filters['order_type'];
+        }
+        
+        if (isset($filters['status']) && !empty($filters['status'])) {
+            $sql .= " AND status = :status";
+            $params[':status'] = $filters['status'];
+        }
+        
+        if (isset($filters['date_from']) && !empty($filters['date_from'])) {
+            $sql .= " AND DATE(created_at) >= :date_from";
+            $params[':date_from'] = $filters['date_from'];
+        }
+        
+        if (isset($filters['date_to']) && !empty($filters['date_to'])) {
+            $sql .= " AND DATE(created_at) <= :date_to";
+            $params[':date_to'] = $filters['date_to'];
+        }
+        
+        if (isset($filters['search']) && !empty($filters['search'])) {
+            $sql .= " AND (contact_name ILIKE :search OR contact_phone ILIKE :search OR cargo_type ILIKE :search)";
+            $params[':search'] = '%' . $filters['search'] . '%';
+        }
+        
+        $sql .= " ORDER BY created_at DESC";
+        
+        if (isset($filters['limit'])) {
+            $sql .= " LIMIT :limit";
+            $params[':limit'] = (int)$filters['limit'];
+        }
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error filtering shipment orders: " . $e->getMessage());
+            throw new Exception("Failed to filter shipment orders");
+        }
+    }
 }
