@@ -81,11 +81,11 @@ $orders = $orderModel->getAll($filters);
                           x-show="sidebarOpen">Заказы</span>
                 </a>
                 <a href="/crm/clients.php" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-lg transition-all duration-200 group"
-                   :title="!sidebarOpen ? 'Клиенты' : ''">
+                   :title="!sidebarOpen ? 'Пользователи' : ''">
                     <i class="fas fa-users w-5 text-gray-500 group-hover:text-blue-600" :class="sidebarOpen ? 'mr-3' : 'mx-auto'"></i>
                     <span class="transition-opacity duration-300" 
                           :class="sidebarOpen ? 'opacity-100' : 'opacity-0'" 
-                          x-show="sidebarOpen">Клиенты</span>
+                          x-show="sidebarOpen">Пользователи</span>
                 </a>
                 <a href="/crm/notifications.php" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-lg transition-all duration-200 group"
                    :title="!sidebarOpen ? 'Уведомления' : ''">

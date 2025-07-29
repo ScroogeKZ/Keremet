@@ -32,12 +32,24 @@ try {
             break;
             
         case 'POST':
-            $input = json_decode(file_get_contents('php://input'), true);
+            // Поддержка как JSON, так и form-data
+            $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
             
-            if (!$input) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Invalid JSON input']);
-                exit;
+            if (strpos($contentType, 'application/json') !== false) {
+                $input = json_decode(file_get_contents('php://input'), true);
+                if (!$input) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'Invalid JSON input']);
+                    exit;
+                }
+            } else {
+                // Form data from HTML forms
+                $input = $_POST;
+                if (empty($input)) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'No input data']);
+                    exit;
+                }
             }
             
             $shipmentOrder = new ShipmentOrder();

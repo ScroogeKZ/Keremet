@@ -50,10 +50,11 @@ foreach ($week_orders as $order) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Календарь доставок - CRM Система</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body class="bg-gray-50">
-    <div class="flex h-screen bg-gray-50" x-data="{ sidebarOpen: true }">
+<body class="bg-gray-50" x-data="{ sidebarOpen: true }">
+    <div class="flex h-screen bg-gray-50">
         <!-- Left Sidebar Navigation -->
         <div class="bg-white shadow-xl border-r border-gray-200 transition-all duration-300 ease-in-out" 
              :class="sidebarOpen ? 'w-72' : 'w-16'">
@@ -153,126 +154,96 @@ foreach ($week_orders as $order) {
             </header>
 
             <!-- Content Area -->
-            <div class="flex-1 overflow-auto bg-gray-50 p-8">
-                            <i class="fas fa-tachometer-alt mr-2"></i>Дашборд
-                        </a>
-                        <a href="/crm/orders.php" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            <i class="fas fa-box mr-2"></i>Заказы
-                        </a>
-                        <a href="/crm/calendar.php" class="border-blue-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            <i class="fas fa-calendar mr-2"></i>Календарь
-                        </a>
-                        <a href="/crm/bulk_operations.php" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            <i class="fas fa-tasks mr-2"></i>Массовые операции
-                        </a>
-                        <a href="/crm/reports.php" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            <i class="fas fa-file-alt mr-2"></i>Отчеты
-                        </a>
-                        <a href="/crm/analytics.php" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            <i class="fas fa-chart-bar mr-2"></i>Аналитика
-                        </a>
+            <main class="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
+                <!-- Header -->
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 space-y-4 sm:space-y-0">
+                    <div>
+                        <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Календарь доставок</h1>
+                        <p class="mt-2 text-sm md:text-base text-gray-600">Планирование и контроль доставок на неделю</p>
                     </div>
-                </div>
-                <div class="flex items-center">
-                    <a href="/crm/logout.php" class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">
-                        <i class="fas fa-sign-out-alt mr-1"></i>Выход
-                    </a>
-                </div>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Main Content -->
-    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div class="px-4 py-6 sm:px-0">
-            
-            <!-- Header -->
-            <div class="flex justify-between items-center mb-6">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-900">Календарь доставок</h1>
-                    <p class="mt-2 text-gray-600">Планирование и контроль доставок на неделю</p>
-                </div>
-                
-                <!-- Week Navigation -->
-                <div class="flex items-center space-x-4">
-                    <?php
-                    $prev_week = clone $current_date;
-                    $prev_week->modify('-1 week');
-                    $next_week = clone $current_date;
-                    $next_week->modify('+1 week');
-                    ?>
-                    <a href="?date=<?= $prev_week->format('Y-m-d') ?>" 
-                       class="bg-white border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                        <i class="fas fa-chevron-left"></i>
-                    </a>
-                    <span class="text-lg font-medium text-gray-900">
-                        <?= $week_days[0]->format('d.m') ?> - <?= $week_days[6]->format('d.m.Y') ?>
-                    </span>
-                    <a href="?date=<?= $next_week->format('Y-m-d') ?>" 
-                       class="bg-white border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                        <i class="fas fa-chevron-right"></i>
-                    </a>
-                </div>
-            </div>
-
-            <!-- Calendar Grid -->
-            <div class="bg-white rounded-lg shadow overflow-hidden">
-                <div class="grid grid-cols-7 gap-px bg-gray-200">
-                    <!-- Week header -->
-                    <?php 
-                    $day_names = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
-                    foreach ($day_names as $day_name): 
-                    ?>
-                    <div class="bg-gray-50 p-3 text-center">
-                        <div class="text-sm font-medium text-gray-900"><?= $day_name ?></div>
-                    </div>
-                    <?php endforeach; ?>
                     
-                    <!-- Week days -->
-                    <?php foreach ($week_days as $day): ?>
-                    <div class="bg-white p-3 min-h-32">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-sm font-medium text-gray-900"><?= $day->format('d.m') ?></span>
-                            <?php
-                            $day_key = $day->format('Y-m-d');
-                            $day_orders = $orders_by_date[$day_key] ?? [];
-                            $order_count = count($day_orders);
+                    <!-- Week Navigation -->
+                    <div class="flex items-center justify-center sm:justify-end space-x-2 md:space-x-4">
+                        <?php
+                        $prev_week = clone $current_date;
+                        $prev_week->modify('-1 week');
+                        $next_week = clone $current_date;
+                        $next_week->modify('+1 week');
+                        ?>
+                        <a href="?date=<?= $prev_week->format('Y-m-d') ?>" 
+                           class="bg-white border border-gray-300 rounded-md px-2 md:px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                        <span class="text-sm md:text-lg font-medium text-gray-900 px-2">
+                            <?= $week_days[0]->format('d.m') ?> - <?= $week_days[6]->format('d.m.Y') ?>
+                        </span>
+                        <a href="?date=<?= $next_week->format('Y-m-d') ?>" 
+                           class="bg-white border border-gray-300 rounded-md px-2 md:px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Calendar Grid -->
+                <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                    <!-- Desktop Calendar (hidden on mobile) -->
+                    <div class="hidden lg:block">
+                        <div class="grid grid-cols-7 gap-px bg-gray-200">
+                            <!-- Week header -->
+                            <?php 
+                            $day_names = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+                            foreach ($day_names as $day_name): 
                             ?>
-                            <?php if ($order_count > 0): ?>
-                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                <?= $order_count ?>
-                            </span>
-                            <?php endif; ?>
-                        </div>
-                        
-                        <!-- Orders for this day -->
-                        <div class="space-y-1">
-                            <?php foreach (array_slice($day_orders, 0, 3) as $order): ?>
-                            <div class="bg-gray-50 border border-gray-200 rounded p-2 text-xs cursor-pointer hover:bg-gray-100"
-                                 onclick="showOrderDetails(<?= $order['id'] ?>)">
-                                <div class="font-medium text-gray-900 truncate">
-                                    #<?= $order['id'] ?> - <?= htmlspecialchars($order['cargo_type']) ?>
-                                </div>
-                                <div class="text-gray-500 truncate">
-                                    <?= htmlspecialchars($order['pickup_address']) ?>
-                                </div>
-                                <div class="flex justify-between items-center mt-1">
-                                    <span class="px-1 py-0.5 rounded text-xs font-medium 
-                                        <?= $order['status'] === 'completed' ? 'bg-green-100 text-green-800' : 
-                                           ($order['status'] === 'in_progress' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800') ?>">
-                                        <?= ucfirst($order['status']) ?>
-                                    </span>
-                                    <span class="text-gray-400">
-                                        <?= $order['order_type'] === 'astana' ? 'АСТ' : 'РЕГ' ?>
-                                    </span>
-                                </div>
+                            <div class="bg-gray-50 p-3 text-center">
+                                <div class="text-sm font-medium text-gray-900"><?= $day_name ?></div>
                             </div>
                             <?php endforeach; ?>
                             
-                            <?php if ($order_count > 3): ?>
-                            <div class="text-center">
-                                <button class="text-blue-600 hover:text-blue-800 text-xs">
-                                    +<?= $order_count - 3 ?> еще
+                            <!-- Week days -->
+                            <?php foreach ($week_days as $day): ?>
+                            <div class="bg-white p-3 min-h-48">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-sm font-medium text-gray-900"><?= $day->format('d.m') ?></span>
+                                    <?php
+                                    $day_key = $day->format('Y-m-d');
+                                    $day_orders = $orders_by_date[$day_key] ?? [];
+                                    $order_count = count($day_orders);
+                                    ?>
+                                    <?php if ($order_count > 0): ?>
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        <?= $order_count ?>
+                                    </span>
+                                    <?php endif; ?>
+                                </div>
+                                
+                                <!-- Orders for this day -->
+                                <div class="space-y-1">
+                                    <?php foreach (array_slice($day_orders, 0, 4) as $order): ?>
+                                    <div class="bg-gray-50 border border-gray-200 rounded p-2 text-xs cursor-pointer hover:bg-gray-100 transition-colors"
+                                         onclick="showOrderDetails(<?= $order['id'] ?>)">
+                                        <div class="font-medium text-gray-900 truncate">
+                                            #<?= $order['id'] ?> - <?= htmlspecialchars($order['cargo_type']) ?>
+                                        </div>
+                                        <div class="text-gray-500 truncate mt-1">
+                                            <?= htmlspecialchars($order['pickup_address']) ?>
+                                        </div>
+                                        <div class="flex justify-between items-center mt-1">
+                                            <span class="px-1 py-0.5 rounded text-xs font-medium 
+                                                <?= $order['status'] === 'completed' ? 'bg-green-100 text-green-800' : 
+                                                   ($order['status'] === 'in_progress' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800') ?>">
+                                                <?= ucfirst($order['status']) ?>
+                                            </span>
+                                            <span class="text-gray-400">
+                                                <?= $order['order_type'] === 'astana' ? 'АСТ' : 'РЕГ' ?>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <?php endforeach; ?>
+                                    
+                                    <?php if ($order_count > 4): ?>
+                                    <div class="text-center mt-2">
+                                        <button class="text-blue-600 hover:text-blue-800 text-xs font-medium">
+                                            +<?= $order_count - 4 ?> еще
                                 </button>
                             </div>
                             <?php endif; ?>
@@ -282,73 +253,156 @@ foreach ($week_orders as $order) {
                 </div>
             </div>
 
-            <!-- Quick Stats -->
-            <div class="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="bg-white p-4 rounded-lg shadow">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-calendar-check text-green-600 text-xl"></i>
+            <!-- Mobile Calendar (shown on mobile and tablet) -->
+            <div class="block lg:hidden">
+                <div class="space-y-4">
+                    <?php foreach ($week_days as $day): ?>
+                    <?php
+                    $day_key = $day->format('Y-m-d');
+                    $day_orders = $orders_by_date[$day_key] ?? [];
+                    $order_count = count($day_orders);
+                    $day_names_short = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+                    $day_names_full = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+                    $day_index = (int)$day->format('N') - 1;
+                    ?>
+                    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                        <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900">
+                                        <span class="sm:hidden"><?= $day_names_short[$day_index] ?></span>
+                                        <span class="hidden sm:inline"><?= $day_names_full[$day_index] ?></span>
+                                        <span class="ml-2 text-gray-500"><?= $day->format('d.m.Y') ?></span>
+                                    </div>
+                                </div>
+                                <?php if ($order_count > 0): ?>
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    <?= $order_count ?> заказов
+                                </span>
+                                <?php else: ?>
+                                <span class="text-xs text-gray-400">Нет заказов</span>
+                                <?php endif; ?>
+                            </div>
                         </div>
-                        <div class="ml-3">
-                            <p class="text-sm font-medium text-gray-500">Заказов на неделе</p>
-                            <p class="text-lg font-semibold text-gray-900"><?= count($week_orders) ?></p>
+                        
+                        <?php if ($order_count > 0): ?>
+                        <div class="p-4 space-y-3">
+                            <?php foreach ($day_orders as $order): ?>
+                            <div class="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                                 onclick="showOrderDetails(<?= $order['id'] ?>)">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center space-x-2 mb-1">
+                                            <span class="text-sm font-medium text-gray-900">#<?= $order['id'] ?></span>
+                                            <span class="px-2 py-1 rounded text-xs font-medium 
+                                                <?= $order['status'] === 'completed' ? 'bg-green-100 text-green-800' : 
+                                                   ($order['status'] === 'in_progress' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800') ?>">
+                                                <?= ucfirst($order['status']) ?>
+                                            </span>
+                                            <span class="text-xs text-gray-500">
+                                                <?= $order['order_type'] === 'astana' ? 'Астана' : 'Региональная' ?>
+                                            </span>
+                                        </div>
+                                        <div class="text-sm text-gray-900 mb-1">
+                                            <strong>Груз:</strong> <?= htmlspecialchars($order['cargo_type']) ?>
+                                        </div>
+                                        <div class="text-sm text-gray-600 truncate">
+                                            <i class="fas fa-map-marker-alt mr-1"></i>
+                                            <?= htmlspecialchars($order['pickup_address']) ?>
+                                        </div>
+                                        <?php if (!empty($order['shipping_cost'])): ?>
+                                        <div class="text-sm text-gray-600 mt-1">
+                                            <i class="fas fa-ruble-sign mr-1"></i>
+                                            <?= number_format($order['shipping_cost'], 0, ',', ' ') ?> ₸
+                                        </div>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="flex-shrink-0 ml-2">
+                                        <i class="fas fa-chevron-right text-gray-400"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
                         </div>
+                        <?php else: ?>
+                        <div class="p-6 text-center text-gray-500">
+                            <i class="fas fa-calendar-times text-2xl mb-2"></i>
+                            <p class="text-sm">На этот день заказов нет</p>
+                        </div>
+                        <?php endif; ?>
                     </div>
-                </div>
-                
-                <div class="bg-white p-4 rounded-lg shadow">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-truck text-blue-600 text-xl"></i>
-                        </div>
-                        <div class="ml-3">
-                            <p class="text-sm font-medium text-gray-500">В работе</p>
-                            <p class="text-lg font-semibold text-gray-900">
-                                <?= count(array_filter($week_orders, fn($o) => $o['status'] === 'in_progress')) ?>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="bg-white p-4 rounded-lg shadow">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-check-circle text-green-600 text-xl"></i>
-                        </div>
-                        <div class="ml-3">
-                            <p class="text-sm font-medium text-gray-500">Завершено</p>
-                            <p class="text-lg font-semibold text-gray-900">
-                                <?= count(array_filter($week_orders, fn($o) => $o['status'] === 'completed')) ?>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="bg-white p-4 rounded-lg shadow">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-ruble-sign text-purple-600 text-xl"></i>
-                        </div>
-                        <div class="ml-3">
-                            <p class="text-sm font-medium text-gray-500">Общая стоимость</p>
-                            <p class="text-lg font-semibold text-gray-900">
-                                <?= number_format(array_sum(array_column($week_orders, 'shipping_cost')), 0, ',', ' ') ?> ₸
-                            </p>
-                        </div>
-                    </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
+        </div>
 
+        <!-- Quick Stats -->
+                <div class="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-calendar-check text-green-600 text-lg md:text-xl"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-xs md:text-sm font-medium text-gray-500">Заказов на неделе</p>
+                                <p class="text-lg md:text-xl font-semibold text-gray-900"><?= count($week_orders) ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-truck text-blue-600 text-lg md:text-xl"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-xs md:text-sm font-medium text-gray-500">В работе</p>
+                                <p class="text-lg md:text-xl font-semibold text-gray-900">
+                                    <?= count(array_filter($week_orders, fn($o) => $o['status'] === 'in_progress')) ?>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-check-circle text-green-600 text-lg md:text-xl"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-xs md:text-sm font-medium text-gray-500">Завершено</p>
+                                <p class="text-lg md:text-xl font-semibold text-gray-900">
+                                    <?= count(array_filter($week_orders, fn($o) => $o['status'] === 'completed')) ?>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-tenge text-purple-600 text-lg md:text-xl"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-xs md:text-sm font-medium text-gray-500">Общая стоимость</p>
+                                <p class="text-sm md:text-lg font-semibold text-gray-900">
+                                    <?= number_format(array_sum(array_column($week_orders, 'shipping_cost')), 0, ',', ' ') ?> ₸
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
         </div>
     </div>
 
     <!-- Order Details Modal -->
-    <div id="order-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden">
-        <div class="flex items-center justify-center min-h-screen">
-            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+    <div id="order-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg p-6 max-w-md w-full">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900">Детали заказа</h3>
-                    <button onclick="closeOrderModal()" class="text-gray-400 hover:text-gray-600">
+                    <button onclick="closeOrderModal()" class="text-gray-400 hover:text-gray-600 p-2">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>

@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../vendor/autoload.php';
 
 use App\Auth;
 use App\Models\ShipmentOrder;
+use App\Models\Client;
 
 // Check authentication
 if (!Auth::isAuthenticated()) {
@@ -12,32 +13,50 @@ if (!Auth::isAuthenticated()) {
 }
 
 $orderModel = new ShipmentOrder();
+$clientModel = new Client();
 
-// Get delivery objects (unique addresses from orders)
+// Handle client verification
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_client'])) {
+    try {
+        $pdo = \Database::getInstance()->getConnection();
+        $stmt = $pdo->prepare("UPDATE clients SET is_verified = true WHERE id = ?");
+        $stmt->execute([(int)$_POST['verify_client']]);
+        header('Location: /crm/clients.php?verified=1');
+        exit;
+    } catch (Exception $e) {
+        // Handle error silently for now
+    }
+}
+
+// Get all registered clients
 try {
     $pdo = \Database::getInstance()->getConnection();
     
     // Filter query based on search parameters
     $searchFilter = '';
-    $statusFilter = '';
     $params = array();
     
     if (!empty($_GET['search'])) {
-        $searchFilter = " AND pickup_address LIKE :search";
+        $searchFilter = " WHERE (name LIKE :search OR phone LIKE :search OR email LIKE :search)";
         $params[':search'] = '%' . $_GET['search'] . '%';
     }
     
     $query = "
         SELECT 
-            pickup_address as address,
-            COUNT(*) as total_orders,
-            COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_orders,
-            MAX(created_at) as last_delivery,
-            CASE WHEN COUNT(*) >= 5 THEN 'active' ELSE 'inactive' END as status
-        FROM shipment_orders 
-        WHERE pickup_address IS NOT NULL AND pickup_address != '' {$searchFilter}
-        GROUP BY pickup_address
-        ORDER BY total_orders DESC
+            c.id,
+            c.phone,
+            c.name,
+            c.email,
+            c.is_verified,
+            c.created_at,
+            COUNT(so.id) as total_orders,
+            COUNT(CASE WHEN so.status = 'completed' THEN 1 END) as completed_orders,
+            MAX(so.created_at) as last_order_date
+        FROM clients c
+        LEFT JOIN shipment_orders so ON c.id = so.client_id
+        {$searchFilter}
+        GROUP BY c.id, c.phone, c.name, c.email, c.is_verified, c.created_at
+        ORDER BY c.created_at DESC
     ";
     
     $stmt = $pdo->prepare($query);
@@ -45,20 +64,20 @@ try {
         $stmt->bindValue($key, $value);
     }
     $stmt->execute();
-    $deliveryObjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Get statistics
-    $objectStats = [
-        'total_objects' => count($deliveryObjects),
-        'active_objects' => count(array_filter($deliveryObjects, fn($obj) => $obj['status'] === 'active')),
-        'new_this_month' => count(array_filter($deliveryObjects, fn($obj) => 
-            strtotime($obj['last_delivery']) >= strtotime('first day of this month')
+    $clientStats = [
+        'total_clients' => count($clients),
+        'verified_clients' => count(array_filter($clients, fn($client) => $client['is_verified'])),
+        'new_this_month' => count(array_filter($clients, fn($client) => 
+            strtotime($client['created_at']) >= strtotime('first day of this month')
         ))
     ];
     
 } catch (Exception $e) {
-    $deliveryObjects = [];
-    $objectStats = ['total_objects' => 0, 'active_objects' => 0, 'new_this_month' => 0];
+    $clients = [];
+    $clientStats = ['total_clients' => 0, 'verified_clients' => 0, 'new_this_month' => 0];
 }
 ?>
 <!DOCTYPE html>
@@ -66,7 +85,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Список объектов - CRM</title>
+    <title>Пользователи - CRM</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -109,11 +128,11 @@ try {
                           x-show="sidebarOpen">Заказы</span>
                 </a>
                 <a href="/crm/clients.php" class="flex items-center px-4 py-3 text-blue-700 bg-gradient-to-r from-blue-50 to-blue-100 border-r-4 border-blue-500 rounded-lg shadow-sm group"
-                   :title="!sidebarOpen ? 'Объекты' : ''">
-                    <i class="fas fa-building w-5 text-blue-600" :class="sidebarOpen ? 'mr-3' : 'mx-auto'"></i>
+                   :title="!sidebarOpen ? 'Пользователи' : ''">
+                    <i class="fas fa-users w-5 text-blue-600" :class="sidebarOpen ? 'mr-3' : 'mx-auto'"></i>
                     <span class="font-semibold transition-opacity duration-300" 
                           :class="sidebarOpen ? 'opacity-100' : 'opacity-0'" 
-                          x-show="sidebarOpen">Объекты</span>
+                          x-show="sidebarOpen">Пользователи</span>
                 </a>
                 <a href="/crm/notifications.php" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-lg transition-all duration-200 group"
                    :title="!sidebarOpen ? 'Уведомления' : ''">
@@ -188,8 +207,8 @@ try {
             <!-- Top Header -->
             <header class="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center justify-between px-6">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-900">Список объектов</h1>
-                    <p class="text-sm text-gray-600">Адреса и объекты доставки</p>
+                    <h1 class="text-2xl font-bold text-gray-900">Пользователи</h1>
+                    <p class="text-sm text-gray-600">Все зарегистрированные пользователи системы</p>
                 </div>
                 <div class="flex items-center space-x-4">
                     <a href="/" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center">
@@ -211,33 +230,33 @@ try {
                     <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow duration-200">
                         <div class="flex items-center">
                             <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mr-4">
-                                <i class="fas fa-building text-white text-xl"></i>
+                                <i class="fas fa-users text-white text-xl"></i>
                             </div>
                             <div>
-                                <p class="text-sm font-medium text-gray-600">Всего объектов</p>
-                                <p class="text-2xl font-bold text-gray-900"><?= $objectStats['total_objects'] ?></p>
+                                <p class="text-sm font-medium text-gray-600">Всего пользователей</p>
+                                <p class="text-2xl font-bold text-gray-900"><?= $clientStats['total_clients'] ?></p>
                             </div>
                         </div>
                     </div>
                     <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow duration-200">
                         <div class="flex items-center">
                             <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center mr-4">
-                                <i class="fas fa-map-marker-alt text-white text-xl"></i>
+                                <i class="fas fa-user-check text-white text-xl"></i>
                             </div>
                             <div>
-                                <p class="text-sm font-medium text-gray-600">Активные</p>
-                                <p class="text-2xl font-bold text-gray-900"><?= $objectStats['active_objects'] ?></p>
+                                <p class="text-sm font-medium text-gray-600">Подтвержденные</p>
+                                <p class="text-2xl font-bold text-gray-900"><?= $clientStats['verified_clients'] ?></p>
                             </div>
                         </div>
                     </div>
                     <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow duration-200">
                         <div class="flex items-center">
                             <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mr-4">
-                                <i class="fas fa-calendar-plus text-white text-xl"></i>
+                                <i class="fas fa-user-plus text-white text-xl"></i>
                             </div>
                             <div>
                                 <p class="text-sm font-medium text-gray-600">Новые за месяц</p>
-                                <p class="text-2xl font-bold text-gray-900"><?= $objectStats['new_this_month'] ?></p>
+                                <p class="text-2xl font-bold text-gray-900"><?= $clientStats['new_this_month'] ?></p>
                             </div>
                         </div>
                     </div>
@@ -249,13 +268,13 @@ try {
                         <div class="flex-1 min-w-64">
                             <input type="text" name="search" 
                                    value="<?= htmlspecialchars($_GET['search'] ?? '') ?>"
-                                   placeholder="Поиск по адресу объекта..."
+                                   placeholder="Поиск по имени, телефону или email..."
                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         </div>
                         <select name="is_verified" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                            <option value="">Все объекты</option>
-                            <option value="1" <?= ($_GET['is_verified'] ?? '') === '1' ? 'selected' : '' ?>>Активные</option>
-                            <option value="0" <?= ($_GET['is_verified'] ?? '') === '0' ? 'selected' : '' ?>>Неактивные</option>
+                            <option value="">Все пользователи</option>
+                            <option value="1" <?= ($_GET['is_verified'] ?? '') === '1' ? 'selected' : '' ?>>Подтвержденные</option>
+                            <option value="0" <?= ($_GET['is_verified'] ?? '') === '0' ? 'selected' : '' ?>>Неподтвержденные</option>
                         </select>
                         <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">
                             <i class="fas fa-search mr-2"></i>Поиск
@@ -266,80 +285,86 @@ try {
                     </form>
                 </div>
 
-                <!-- Delivery Objects Table -->
+                <!-- Clients Table -->
                 <div class="bg-white shadow overflow-hidden sm:rounded-xl border border-gray-100">
                     <div class="px-6 py-4 border-b border-gray-200">
-                        <h3 class="text-lg font-medium text-gray-900">Объекты доставки</h3>
-                        <p class="mt-1 text-sm text-gray-600">Адреса с историей доставок и статистикой</p>
+                        <h3 class="text-lg font-medium text-gray-900">Зарегистрированные пользователи</h3>
+                        <p class="mt-1 text-sm text-gray-600">Все пользователи системы с историей заказов</p>
                     </div>
                     
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Адрес объекта</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Всего заказов</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Завершено</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Пользователь</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Телефон</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Заказы</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Последняя доставка</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата регистрации</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
-                                <?php if (empty($deliveryObjects)): ?>
+                                <?php if (empty($clients)): ?>
                                 <tr>
-                                    <td colspan="6" class="px-6 py-12 text-center text-gray-500">
-                                        <i class="fas fa-building text-4xl text-gray-300 mb-4"></i>
-                                        <p class="text-lg font-medium">Объекты доставки не найдены</p>
-                                        <p class="text-sm">Создайте заказы для появления объектов в списке</p>
+                                    <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+                                        <i class="fas fa-users text-4xl text-gray-300 mb-4"></i>
+                                        <p class="text-lg font-medium">Пользователи не найдены</p>
+                                        <p class="text-sm">Зарегистрированные пользователи будут отображены здесь</p>
                                     </td>
                                 </tr>
                                 <?php else: ?>
-                                <?php foreach ($deliveryObjects as $object): ?>
+                                <?php foreach ($clients as $client): ?>
                                 <tr class="hover:bg-gray-50 transition-colors duration-150">
                                     <td class="px-6 py-4">
                                         <div class="flex items-center">
                                             <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mr-3">
-                                                <i class="fas fa-building text-white text-sm"></i>
+                                                <i class="fas fa-user text-white text-sm"></i>
                                             </div>
-                                            <div class="max-w-xs">
-                                                <div class="text-sm font-medium text-gray-900 truncate" title="<?= htmlspecialchars($object['address']) ?>">
-                                                    <?= htmlspecialchars($object['address']) ?>
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-900">
+                                                    <?= htmlspecialchars($client['name']) ?>
                                                 </div>
+                                                <div class="text-xs text-gray-500">ID: <?= $client['id'] ?></div>
                                             </div>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm font-medium text-gray-900"><?= $object['total_orders'] ?></div>
-                                        <div class="text-xs text-gray-500">доставок</div>
+                                        <div class="text-sm font-medium text-gray-900"><?= htmlspecialchars($client['phone']) ?></div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm font-medium text-green-600"><?= $object['completed_orders'] ?></div>
-                                        <div class="text-xs text-gray-500">успешно</div>
+                                        <div class="text-sm text-gray-900"><?= htmlspecialchars($client['email'] ?: '-') ?></div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <?php if ($object['status'] === 'active'): ?>
+                                        <div class="text-sm font-medium text-gray-900"><?= $client['total_orders'] ?></div>
+                                        <div class="text-xs text-gray-500"><?= $client['completed_orders'] ?> завершено</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <?php if ($client['is_verified']): ?>
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                            <i class="fas fa-check-circle mr-1"></i>Активный
+                                            <i class="fas fa-check-circle mr-1"></i>Подтвержден
                                         </span>
                                         <?php else: ?>
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                            <i class="fas fa-minus-circle mr-1"></i>Обычный
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                            <i class="fas fa-clock mr-1"></i>Ожидает
                                         </span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?= date('d.m.Y', strtotime($object['last_delivery'])) ?>
+                                        <?= date('d.m.Y', strtotime($client['created_at'])) ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                        <a href="/crm/orders.php?search=<?= urlencode($object['address']) ?>" 
+                                        <a href="/crm/orders.php?client_id=<?= $client['id'] ?>" 
                                            class="text-blue-600 hover:text-blue-800 font-medium">
                                             <i class="fas fa-list mr-1"></i>Заказы
                                         </a>
+                                        <?php if (!$client['is_verified']): ?>
                                         <button class="text-green-600 hover:text-green-800 ml-2" 
-                                                onclick="showObjectDetails('<?= htmlspecialchars($object['address']) ?>')">
-                                            <i class="fas fa-info-circle mr-1"></i>Детали
+                                                onclick="verifyClient(<?= $client['id'] ?>)">
+                                            <i class="fas fa-check mr-1"></i>Подтвердить
                                         </button>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -364,8 +389,22 @@ try {
     <?php endif; ?>
 
     <script>
-    function showObjectDetails(address) {
-        alert('Подробная информация об объекте:\n\nАдрес: ' + address + '\n\nДля получения детальной информации перейдите в раздел "Заказы" и найдите заказы по этому адресу.');
+    function verifyClient(clientId) {
+        if (confirm('Подтвердить пользователя? Это даст ему полный доступ к системе.')) {
+            // Создаем форму для отправки POST запроса
+            let form = document.createElement('form');
+            form.method = 'POST';
+            form.style.display = 'none';
+            
+            let input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'verify_client';
+            input.value = clientId;
+            
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
     }
     </script>
 </body>
