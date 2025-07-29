@@ -16,14 +16,31 @@ class ShipmentOrder {
     }
     
     public function create($data) {
+        // Попытка найти клиента по номеру телефона
+        $clientId = null;
+        if (!empty($data['contact_phone'])) {
+            $clientSql = "SELECT id FROM clients WHERE phone = ? OR phone = ? LIMIT 1";
+            $clientStmt = $this->db->prepare($clientSql);
+            // Проверяем как с +, так и без + в номере
+            $phoneVariants = [
+                $data['contact_phone'],
+                ltrim($data['contact_phone'], '+')
+            ];
+            $clientStmt->execute($phoneVariants);
+            $client = $clientStmt->fetch();
+            if ($client) {
+                $clientId = $client['id'];
+            }
+        }
+        
         $sql = "INSERT INTO shipment_orders (
             order_type, pickup_city, pickup_address, ready_time, contact_name, contact_phone,
             cargo_type, weight, dimensions, destination_city, delivery_address,
-            delivery_method, desired_arrival_date, recipient_contact, recipient_phone, notes, comment, status
+            delivery_method, desired_arrival_date, recipient_contact, recipient_phone, notes, comment, status, client_id
         ) VALUES (
             :order_type, :pickup_city, :pickup_address, :ready_time, :contact_name, :contact_phone,
             :cargo_type, :weight, :dimensions, :destination_city, :delivery_address,
-            :delivery_method, :desired_arrival_date, :recipient_contact, :recipient_phone, :notes, :comment, :status
+            :delivery_method, :desired_arrival_date, :recipient_contact, :recipient_phone, :notes, :comment, :status, :client_id
         ) RETURNING *";
         
         try {
@@ -49,7 +66,8 @@ class ShipmentOrder {
                 ':recipient_phone' => $data['recipient_phone'] ?? null,
                 ':notes' => $data['notes'] ?? null,
                 ':comment' => $data['comment'] ?? null,
-                ':status' => $status
+                ':status' => $status,
+                ':client_id' => $clientId
             ]);
             
             return $stmt->fetch();
@@ -63,29 +81,30 @@ class ShipmentOrder {
         $sql = "SELECT * FROM shipment_orders WHERE 1=1";
         $params = [];
         
-        if (isset($filters['order_type'])) {
+        // Применяем фильтры только если они не пустые
+        if (!empty($filters['order_type'])) {
             $sql .= " AND order_type = :order_type";
             $params[':order_type'] = $filters['order_type'];
         }
         
-        if (isset($filters['status'])) {
+        if (!empty($filters['status'])) {
             $sql .= " AND status = :status";
             $params[':status'] = $filters['status'];
         }
         
-        if (isset($filters['search'])) {
+        if (!empty($filters['search'])) {
             $sql .= " AND (contact_name ILIKE :search OR contact_phone ILIKE :search)";
             $params[':search'] = '%' . $filters['search'] . '%';
         }
         
         $sql .= " ORDER BY created_at DESC";
         
-        if (isset($filters['limit'])) {
+        if (isset($filters['limit']) && $filters['limit'] > 0) {
             $sql .= " LIMIT :limit";
             $params[':limit'] = (int)$filters['limit'];
         }
         
-        if (isset($filters['offset'])) {
+        if (isset($filters['offset']) && $filters['offset'] > 0) {
             $sql .= " OFFSET :offset";
             $params[':offset'] = (int)$filters['offset'];
         }
@@ -93,10 +112,10 @@ class ShipmentOrder {
         try {
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
-            return $stmt->fetchAll();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Error fetching shipment orders: " . $e->getMessage());
-            throw new Exception("Failed to fetch shipment orders");
+            throw new Exception("Failed to fetch shipment orders: " . $e->getMessage());
         }
     }
     
@@ -126,6 +145,58 @@ class ShipmentOrder {
         } catch (PDOException $e) {
             error_log("Error updating shipment order status: " . $e->getMessage());
             throw new Exception("Failed to update shipment order status");
+        }
+    }
+    
+    public function updateOrder($id, $data) {
+        $sql = "UPDATE shipment_orders SET 
+                    pickup_address = :pickup_address,
+                    ready_time = :ready_time,
+                    contact_name = :contact_name,
+                    contact_phone = :contact_phone,
+                    cargo_type = :cargo_type,
+                    weight = :weight,
+                    dimensions = :dimensions,
+                    delivery_address = :delivery_address,
+                    recipient_contact = :recipient_contact,
+                    recipient_phone = :recipient_phone,
+                    notes = :notes,
+                    comment = :comment,
+                    status = :status,
+                    destination_city = :destination_city,
+                    delivery_method = :delivery_method,
+                    desired_arrival_date = :desired_arrival_date,
+                    shipping_cost = :shipping_cost,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = :id RETURNING *";
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([
+                ':id' => $id,
+                ':pickup_address' => $data['pickup_address'],
+                ':ready_time' => $data['ready_time'],
+                ':contact_name' => $data['contact_name'],
+                ':contact_phone' => $data['contact_phone'],
+                ':cargo_type' => $data['cargo_type'],
+                ':weight' => $data['weight'] ? floatval($data['weight']) : null,
+                ':dimensions' => $data['dimensions'],
+                ':delivery_address' => $data['delivery_address'],
+                ':recipient_contact' => $data['recipient_contact'],
+                ':recipient_phone' => $data['recipient_phone'],
+                ':notes' => $data['notes'],
+                ':comment' => $data['comment'],
+                ':status' => $data['status'],
+                ':destination_city' => $data['destination_city'] ?: null,
+                ':delivery_method' => $data['delivery_method'] ?: null,
+                ':desired_arrival_date' => !empty($data['desired_arrival_date']) ? $data['desired_arrival_date'] : null,
+                ':shipping_cost' => $data['shipping_cost'] ? floatval($data['shipping_cost']) : null
+            ]);
+            
+            return $stmt->fetch();
+        } catch (PDOException $e) {
+            error_log("Error updating shipment order: " . $e->getMessage());
+            throw new Exception("Failed to update shipment order: " . $e->getMessage());
         }
     }
     

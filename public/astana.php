@@ -4,6 +4,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use App\Models\ShipmentOrder;
 use App\EmailService;
+use App\TelegramService;
 
 $success = false;
 $error = '';
@@ -101,6 +102,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $emailService->sendOrderNotification($orderData, 'created');
             } catch (Exception $e) {
                 error_log("Email notification failed: " . $e->getMessage());
+            }
+            
+            // Отправляем Telegram уведомление
+            try {
+                $telegramService = new TelegramService();
+                $orderData = array_merge($data, [
+                    'id' => $result['id'],
+                    'created_at' => date('Y-m-d H:i:s')
+                ]);
+                $telegramService->sendNewOrderNotification($orderData);
+            } catch (Exception $e) {
+                error_log("Telegram notification failed: " . $e->getMessage());
             }
         }
     } catch (Exception $e) {

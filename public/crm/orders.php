@@ -30,6 +30,8 @@ $filters = [
 ];
 
 $orders = $orderModel->getAll($filters);
+
+// Отладочная информация убрана - проблема решена
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -290,22 +292,28 @@ $orders = $orderModel->getAll($filters);
                                 <?= date('d.m.Y H:i', strtotime($order['created_at'])) ?>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <div x-data="{ open: false }" class="relative">
-                                    <button @click="open = !open" class="text-blue-600 hover:text-blue-900">
-                                        <i class="fas fa-cog"></i>
-                                    </button>
-                                    <div x-show="open" @click.away="open = false" class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
-                                        <div class="py-1">
-                                            <form method="POST" class="px-4 py-2">
-                                                <input type="hidden" name="action" value="update_status">
-                                                <input type="hidden" name="order_id" value="<?= $order['id'] ?>">
-                                                <select name="status" onchange="this.form.submit()" class="w-full text-sm border-0 focus:ring-0">
-                                                    <option value="new" <?= $order['status'] === 'new' ? 'selected' : '' ?>>Новый</option>
-                                                    <option value="processing" <?= $order['status'] === 'processing' ? 'selected' : '' ?>>В работе</option>
-                                                    <option value="completed" <?= $order['status'] === 'completed' ? 'selected' : '' ?>>Завершен</option>
-                                                    <option value="cancelled" <?= $order['status'] === 'cancelled' ? 'selected' : '' ?>>Отменен</option>
-                                                </select>
-                                            </form>
+                                <div class="flex items-center space-x-2">
+                                    <a href="/crm/order_details.php?id=<?= $order['id'] ?>" 
+                                       class="text-blue-600 hover:text-blue-900" title="Редактировать заказ">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <div x-data="{ open: false }" class="relative">
+                                        <button @click="open = !open" class="text-gray-600 hover:text-gray-900" title="Изменить статус">
+                                            <i class="fas fa-cog"></i>
+                                        </button>
+                                        <div x-show="open" @click.away="open = false" class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                                            <div class="py-1">
+                                                <form method="POST" class="px-4 py-2">
+                                                    <input type="hidden" name="action" value="update_status">
+                                                    <input type="hidden" name="order_id" value="<?= $order['id'] ?>">
+                                                    <select name="status" onchange="this.form.submit()" class="w-full text-sm border-0 focus:ring-0">
+                                                        <option value="new" <?= $order['status'] === 'new' ? 'selected' : '' ?>>Новый</option>
+                                                        <option value="processing" <?= $order['status'] === 'processing' ? 'selected' : '' ?>>В работе</option>
+                                                        <option value="completed" <?= $order['status'] === 'completed' ? 'selected' : '' ?>>Завершен</option>
+                                                        <option value="cancelled" <?= $order['status'] === 'cancelled' ? 'selected' : '' ?>>Отменен</option>
+                                                    </select>
+                                                </form>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
