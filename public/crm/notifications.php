@@ -1,4 +1,5 @@
 <?php
+session_start();
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../vendor/autoload.php';
 
@@ -10,15 +11,19 @@ if (!Auth::isAuthenticated()) {
     exit;
 }
 
+// Initialize read notifications in session if not exists
+if (!isset($_SESSION['read_notifications'])) {
+    $_SESSION['read_notifications'] = [3, 4]; // Initially notifications 3 and 4 are read
+}
+
 // Sample notifications data (in a real system, this would come from database)
-$notifications = [
+$all_notifications = [
     [
         'id' => 1,
         'type' => 'new_order',
         'title' => 'Новый заказ #1024',
         'message' => 'Получен новый заказ на доставку по Астане',
         'time' => '2 минуты назад',
-        'read' => false,
         'icon' => 'fas fa-box',
         'color' => 'blue'
     ],
@@ -28,7 +33,6 @@ $notifications = [
         'title' => 'Заказ #1023 завершен',
         'message' => 'Доставка металлических плинтусов завершена успешно',
         'time' => '15 минут назад',
-        'read' => false,
         'icon' => 'fas fa-check-circle',
         'color' => 'green'
     ],
@@ -38,7 +42,6 @@ $notifications = [
         'title' => 'Срочная доставка',
         'message' => 'Клиент запросил срочную доставку на завтра',
         'time' => '1 час назад',
-        'read' => true,
         'icon' => 'fas fa-exclamation-triangle',
         'color' => 'red'
     ],
@@ -48,16 +51,65 @@ $notifications = [
         'title' => 'Обновление системы',
         'message' => 'Система была обновлена до версии 2.1',
         'time' => '3 часа назад',
-        'read' => true,
         'icon' => 'fas fa-cogs',
         'color' => 'gray'
+    ],
+    [
+        'id' => 5,
+        'type' => 'new_order',
+        'title' => 'Новый заказ #1025',
+        'message' => 'Региональный заказ в Алматы принят в обработку',
+        'time' => '30 минут назад',
+        'icon' => 'fas fa-box',
+        'color' => 'blue'
     ]
 ];
 
-// Handle mark as read
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_read'])) {
-    $notification_id = $_POST['notification_id'];
-    // In real system, update database here
+// Add read status to notifications
+$notifications = array_map(function($notification) {
+    $notification['read'] = in_array($notification['id'], $_SESSION['read_notifications']);
+    return $notification;
+}, $all_notifications);
+
+// Handle AJAX requests
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['action'])) {
+        if ($_POST['action'] === 'mark_read' && isset($_POST['notification_id'])) {
+            $notification_id = (int)$_POST['notification_id'];
+            if (!in_array($notification_id, $_SESSION['read_notifications'])) {
+                $_SESSION['read_notifications'][] = $notification_id;
+            }
+            
+            if (isset($_POST['ajax'])) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => 'Уведомление отмечено как прочитанное']);
+                exit;
+            }
+        } elseif ($_POST['action'] === 'mark_all_read') {
+            $all_ids = array_column($all_notifications, 'id');
+            $_SESSION['read_notifications'] = array_unique(array_merge($_SESSION['read_notifications'], $all_ids));
+            
+            if (isset($_POST['ajax'])) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => 'Все уведомления отмечены как прочитанные']);
+                exit;
+            }
+        } elseif ($_POST['action'] === 'delete' && isset($_POST['notification_id'])) {
+            $notification_id = (int)$_POST['notification_id'];
+            // Mark as read and "deleted" (in real system, would update database)
+            if (!in_array($notification_id, $_SESSION['read_notifications'])) {
+                $_SESSION['read_notifications'][] = $notification_id;
+            }
+            
+            if (isset($_POST['ajax'])) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => 'Уведомление удалено']);
+                exit;
+            }
+        }
+    }
+    
+    // Redirect back to notifications page for non-AJAX requests
     header('Location: /crm/notifications.php');
     exit;
 }
@@ -69,6 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_read'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Уведомления - CRM Система</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body class="bg-gray-50">
@@ -184,8 +237,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_read'])) {
                     <h1 class="text-3xl font-bold text-gray-900">Уведомления</h1>
                     <p class="mt-2 text-gray-600">Последние события и обновления системы</p>
                 </div>
-                <button onclick="markAllAsRead()" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700">
-                    <i class="fas fa-check-double mr-1"></i>Отметить все как прочитанные
+                <button onclick="markAllAsRead()" 
+                        class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700 transition-colors duration-200 flex items-center">
+                    <i class="fas fa-check-double mr-2"></i>Отметить все как прочитанные
                 </button>
             </div>
 
@@ -239,7 +293,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_read'])) {
                 </div>
                 <div class="divide-y divide-gray-200">
                     <?php foreach ($notifications as $notification): ?>
-                    <div class="p-6 hover:bg-gray-50 <?= !$notification['read'] ? 'bg-blue-50' : '' ?>">
+                    <div class="p-6 hover:bg-gray-50 <?= !$notification['read'] ? 'bg-blue-50' : '' ?>" data-notification-id="<?= $notification['id'] ?>">
                         <div class="flex items-start">
                             <div class="flex-shrink-0">
                                 <div class="w-10 h-10 rounded-full bg-<?= $notification['color'] ?>-100 flex items-center justify-center">
@@ -266,15 +320,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_read'])) {
                                     </div>
                                     <div class="flex items-center space-x-2">
                                         <?php if (!$notification['read']): ?>
-                                        <form method="POST" class="inline">
-                                            <input type="hidden" name="notification_id" value="<?= $notification['id'] ?>">
-                                            <button type="submit" name="mark_read" 
-                                                    class="text-blue-600 hover:text-blue-800 text-sm">
-                                                Отметить как прочитанное
-                                            </button>
-                                        </form>
+                                        <button onclick="markAsRead(<?= $notification['id'] ?>)" 
+                                                class="text-blue-600 hover:text-blue-800 text-sm transition-colors duration-200">
+                                            Отметить как прочитанное
+                                        </button>
                                         <?php endif; ?>
-                                        <button class="text-gray-400 hover:text-gray-600">
+                                        <button onclick="deleteNotification(<?= $notification['id'] ?>)" 
+                                                class="text-gray-400 hover:text-red-600 transition-colors duration-200">
                                             <i class="fas fa-times"></i>
                                         </button>
                                     </div>
@@ -350,11 +402,130 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_read'])) {
     </div>
 
     <script>
+        // Function to show toast notifications
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300 transform translate-x-full ${
+                type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+            }`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            // Slide in
+            setTimeout(() => {
+                toast.classList.remove('translate-x-full');
+            }, 100);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.add('translate-x-full');
+                setTimeout(() => document.body.removeChild(toast), 300);
+            }, 3000);
+        }
+
+        // Mark all notifications as read
         function markAllAsRead() {
-            if (confirm('Отметить все уведомления как прочитанные?')) {
-                // In real system, make AJAX call to mark all as read
-                location.reload();
+            if (!confirm('Отметить все уведомления как прочитанные?')) {
+                return;
             }
+
+            const formData = new FormData();
+            formData.append('action', 'mark_all_read');
+            formData.append('ajax', '1');
+
+            fetch('/crm/notifications.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message);
+                    // Reload page to update UI
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast('Ошибка при обновлении уведомлений', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Ошибка при обновлении уведомлений', 'error');
+            });
+        }
+
+        // Mark single notification as read
+        function markAsRead(notificationId) {
+            const formData = new FormData();
+            formData.append('action', 'mark_read');
+            formData.append('notification_id', notificationId);
+            formData.append('ajax', '1');
+
+            fetch('/crm/notifications.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message);
+                    // Find and update the notification in UI
+                    const notificationElement = document.querySelector(`[data-notification-id="${notificationId}"]`);
+                    if (notificationElement) {
+                        notificationElement.classList.remove('bg-blue-50');
+                        const newBadge = notificationElement.querySelector('.bg-blue-100');
+                        const markReadBtn = notificationElement.querySelector('[onclick*="markAsRead"]');
+                        if (newBadge) newBadge.remove();
+                        if (markReadBtn) markReadBtn.remove();
+                    }
+                } else {
+                    showToast('Ошибка при обновлении уведомления', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Ошибка при обновлении уведомления', 'error');
+            });
+        }
+
+        // Delete notification
+        function deleteNotification(notificationId) {
+            if (!confirm('Удалить это уведомление?')) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'delete');
+            formData.append('notification_id', notificationId);
+            formData.append('ajax', '1');
+
+            fetch('/crm/notifications.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message);
+                    // Find and remove the notification from UI
+                    const notificationElement = document.querySelector(`[data-notification-id="${notificationId}"]`);
+                    if (notificationElement) {
+                        notificationElement.style.transition = 'all 0.3s ease';
+                        notificationElement.style.opacity = '0';
+                        notificationElement.style.transform = 'translateX(100%)';
+                        setTimeout(() => {
+                            notificationElement.remove();
+                            // Update notification count
+                            location.reload();
+                        }, 300);
+                    }
+                } else {
+                    showToast('Ошибка при удалении уведомления', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Ошибка при удалении уведомления', 'error');
+            });
         }
     </script>
 </body>

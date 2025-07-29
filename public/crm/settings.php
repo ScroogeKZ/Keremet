@@ -11,20 +11,113 @@ if (!Auth::isAuthenticated()) {
     exit;
 }
 
+// Initialize settings storage if not exists
+if (!isset($_SESSION['app_settings'])) {
+    $_SESSION['app_settings'] = [
+        'profile' => [
+            'username' => 'admin',
+            'email' => 'admin@hrom-kz.com',
+            'full_name' => 'Администратор системы',
+            'phone' => '+7 777 123 4567'
+        ],
+        'notifications' => [
+            'email_notifications' => true,
+            'telegram_notifications' => true,
+            'sms_notifications' => false,
+            'push_notifications' => true
+        ],
+        'system' => [
+            'company_name' => 'Хром-KZ',
+            'support_email' => 'support@hrom-kz.com',
+            'timezone' => 'Asia/Almaty',
+            'default_currency' => 'KZT',
+            'auto_delete_days' => 365,
+            'telegram_token' => '',
+            'telegram_chat_id' => ''
+        ],
+        'security' => [
+            'session_timeout' => 60,
+            'two_factor_auth' => false,
+            'login_logging' => true,
+            'failed_attempts_limit' => 5
+        ]
+    ];
+}
+
 // Handle settings updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $message = '';
     $messageType = 'success';
     
     if (isset($_POST['update_profile'])) {
-        // Handle profile update logic here
+        $_SESSION['app_settings']['profile'] = [
+            'username' => $_POST['username'] ?? $_SESSION['app_settings']['profile']['username'],
+            'email' => $_POST['email'] ?? $_SESSION['app_settings']['profile']['email'],
+            'full_name' => $_POST['full_name'] ?? $_SESSION['app_settings']['profile']['full_name'],
+            'phone' => $_POST['phone'] ?? $_SESSION['app_settings']['profile']['phone']
+        ];
         $message = 'Профиль успешно обновлен';
     } elseif (isset($_POST['update_notifications'])) {
-        // Handle notification settings
+        $_SESSION['app_settings']['notifications'] = [
+            'email_notifications' => isset($_POST['email_notifications']),
+            'telegram_notifications' => isset($_POST['telegram_notifications']),
+            'sms_notifications' => isset($_POST['sms_notifications']),
+            'push_notifications' => isset($_POST['push_notifications'])
+        ];
         $message = 'Настройки уведомлений сохранены';
     } elseif (isset($_POST['update_system'])) {
-        // Handle system settings
+        $_SESSION['app_settings']['system'] = array_merge($_SESSION['app_settings']['system'], [
+            'company_name' => $_POST['company_name'] ?? $_SESSION['app_settings']['system']['company_name'],
+            'support_email' => $_POST['support_email'] ?? $_SESSION['app_settings']['system']['support_email'],
+            'timezone' => $_POST['timezone'] ?? $_SESSION['app_settings']['system']['timezone'],
+            'default_currency' => $_POST['default_currency'] ?? $_SESSION['app_settings']['system']['default_currency'],
+            'auto_delete_days' => (int)($_POST['auto_delete_days'] ?? $_SESSION['app_settings']['system']['auto_delete_days']),
+            'telegram_token' => $_POST['telegram_token'] ?? $_SESSION['app_settings']['system']['telegram_token'],
+            'telegram_chat_id' => $_POST['telegram_chat_id'] ?? $_SESSION['app_settings']['system']['telegram_chat_id']
+        ]);
         $message = 'Системные настройки обновлены';
+    } elseif (isset($_POST['test_telegram'])) {
+        // Handle Telegram test
+        $token = $_POST['telegram_token'] ?? $_SESSION['app_settings']['system']['telegram_token'];
+        $chat_id = $_POST['telegram_chat_id'] ?? $_SESSION['app_settings']['system']['telegram_chat_id'];
+        
+        if (empty($token) || empty($chat_id)) {
+            $message = 'Укажите токен бота и Chat ID для тестирования';
+            $messageType = 'error';
+        } else {
+            // Test Telegram connection
+            $test_message = "🧪 Тестовое сообщение из CRM системы Хром-KZ\n\nВремя: " . date('d.m.Y H:i:s');
+            $telegram_url = "https://api.telegram.org/bot{$token}/sendMessage";
+            
+            $data = [
+                'chat_id' => $chat_id,
+                'text' => $test_message,
+                'parse_mode' => 'HTML'
+            ];
+            
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'POST',
+                    'header' => 'Content-Type: application/x-www-form-urlencoded',
+                    'content' => http_build_query($data)
+                ]
+            ]);
+            
+            $result = @file_get_contents($telegram_url, false, $context);
+            $response = json_decode($result, true);
+            
+            if ($response && $response['ok']) {
+                $message = 'Telegram соединение работает! Сообщение отправлено успешно.';
+                $messageType = 'success';
+            } else {
+                $message = 'Ошибка Telegram: ' . ($response['description'] ?? 'Неизвестная ошибка');
+                $messageType = 'error';
+            }
+        }
+        
+        header('Content-Type: application/json');
+        echo json_encode(['success' => $messageType === 'success', 'message' => $message]);
+        exit;
     }
 }
 
@@ -319,11 +412,20 @@ $currentUser = $_SESSION['admin_user'] ?? 'admin';
 
                         <!-- System Settings -->
                         <div x-show="activeTab === 'system'" x-transition>
+                            <?php if (isset($message) && isset($_POST['update_system'])): ?>
+                            <div class="mb-4 p-4 rounded-lg <?= $messageType === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700' ?>">
+                                <div class="flex items-center">
+                                    <i class="fas <?= $messageType === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle' ?> mr-2"></i>
+                                    <?= htmlspecialchars($message) ?>
+                                </div>
+                            </div>
+                            <?php endif; ?>
                             <form method="POST" class="space-y-6">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Название компании</label>
-                                        <input type="text" name="company_name" value="Хром-KZ"
+                                        <input type="text" name="company_name" 
+                                               value="<?= htmlspecialchars($_SESSION['app_settings']['system']['company_name']) ?>"
                                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                     </div>
                                     <div>
@@ -333,7 +435,8 @@ $currentUser = $_SESSION['admin_user'] ?? 'admin';
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Email поддержки</label>
-                                        <input type="email" name="support_email" value="support@hrom-kz.com"
+                                        <input type="email" name="support_email" 
+                                               value="<?= htmlspecialchars($_SESSION['app_settings']['system']['support_email']) ?>"
                                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                     </div>
                                     <div>
@@ -355,23 +458,44 @@ $currentUser = $_SESSION['admin_user'] ?? 'admin';
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Автоудаление заказов (дни)</label>
-                                        <input type="number" name="auto_delete_days" value="365" min="1" max="9999"
+                                        <input type="number" name="auto_delete_days" 
+                                               value="<?= $_SESSION['app_settings']['system']['auto_delete_days'] ?>" 
+                                               min="1" max="9999"
                                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                     </div>
                                 </div>
                                 
                                 <div class="border-t border-gray-200 pt-6">
-                                    <h3 class="text-lg font-medium text-gray-900 mb-4">Интеграции</h3>
+                                    <div class="flex items-center justify-between mb-4">
+                                        <h3 class="text-lg font-medium text-gray-900">Интеграции</h3>
+                                        <div class="flex items-center">
+                                            <span class="text-sm text-gray-500 mr-2">Telegram статус:</span>
+                                            <?php 
+                                            $telegram_configured = !empty($_SESSION['app_settings']['system']['telegram_token']) && 
+                                                                   !empty($_SESSION['app_settings']['system']['telegram_chat_id']);
+                                            ?>
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium <?= $telegram_configured ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' ?>">
+                                                <i class="fas <?= $telegram_configured ? 'fa-check-circle' : 'fa-times-circle' ?> mr-1"></i>
+                                                <?= $telegram_configured ? 'Настроен' : 'Не настроен' ?>
+                                            </span>
+                                        </div>
+                                    </div>
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-2">Telegram Bot Token</label>
-                                            <input type="password" name="telegram_token" placeholder="Введите токен бота"
+                                            <input type="password" name="telegram_token" id="telegram_token" 
+                                                   value="<?= htmlspecialchars($_SESSION['app_settings']['system']['telegram_token']) ?>"
+                                                   placeholder="Введите токен бота (например: 123456789:ABCdef...)"
                                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                            <p class="text-xs text-gray-500 mt-1">Получите токен у @BotFather в Telegram</p>
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-2">Chat ID для уведомлений</label>
-                                            <input type="text" name="telegram_chat_id" placeholder="-1001234567890"
+                                            <input type="text" name="telegram_chat_id" id="telegram_chat_id"
+                                                   value="<?= htmlspecialchars($_SESSION['app_settings']['system']['telegram_chat_id']) ?>"
+                                                   placeholder="-1001234567890 или @username"
                                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                            <p class="text-xs text-gray-500 mt-1">ID чата или группы для получения уведомлений</p>
                                         </div>
                                     </div>
                                 </div>
@@ -549,8 +673,70 @@ $currentUser = $_SESSION['admin_user'] ?? 'admin';
     </div>
 
     <script>
+    // Function to show toast notifications
+    function showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300 transform translate-x-full ${
+            type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        // Slide in
+        setTimeout(() => {
+            toast.classList.remove('translate-x-full');
+        }, 100);
+        
+        // Remove after 5 seconds
+        setTimeout(() => {
+            toast.classList.add('translate-x-full');
+            setTimeout(() => document.body.removeChild(toast), 300);
+        }, 5000);
+    }
+
     function testTelegramConnection() {
-        alert('Функция тестирования Telegram будет реализована в следующих версиях');
+        const tokenInput = document.getElementById('telegram_token');
+        const chatIdInput = document.getElementById('telegram_chat_id');
+        const button = event.target;
+        
+        const token = tokenInput.value.trim();
+        const chatId = chatIdInput.value.trim();
+        
+        if (!token || !chatId) {
+            showToast('Пожалуйста, заполните токен бота и Chat ID перед тестированием', 'error');
+            return;
+        }
+        
+        // Disable button during test
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Тестирование...';
+        
+        const formData = new FormData();
+        formData.append('test_telegram', '1');
+        formData.append('telegram_token', token);
+        formData.append('telegram_chat_id', chatId);
+        
+        fetch('/crm/settings.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+            } else {
+                showToast(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Ошибка при тестировании соединения', 'error');
+        })
+        .finally(() => {
+            // Re-enable button
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Тест Telegram';
+        });
     }
 
     function createBackup() {

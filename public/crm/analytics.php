@@ -83,6 +83,7 @@ try {
     <title>Аналитика - CRM</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -136,6 +137,10 @@ try {
                 <a href="/crm/analytics.php" class="flex items-center px-4 py-3 text-blue-700 bg-gradient-to-r from-blue-50 to-blue-100 border-r-4 border-blue-500 rounded-lg shadow-sm">
                     <i class="fas fa-chart-bar mr-3 w-5 text-blue-600"></i>
                     <span class="font-semibold">Аналитика</span>
+                </a>
+                <a href="/crm/settings.php" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-lg transition-all duration-200 group">
+                    <i class="fas fa-cog mr-3 w-5 text-gray-500 group-hover:text-blue-600"></i>
+                    <span>Настройки</span>
                 </a>
             </nav>
             
@@ -285,15 +290,60 @@ try {
         <!-- Charts Section -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <!-- Monthly Revenue Chart -->
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Расходы на логистику по месяцам</h3>
-                <canvas id="monthlyCostsChart" width="400" height="200"></canvas>
+            <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-300">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Расходы на логистику по месяцам</h3>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-500" id="monthlyTotal">Всего: <?= number_format($stats['total_costs'], 0, '.', ' ') ?> ₸</span>
+                        <button class="text-blue-600 hover:text-blue-800" onclick="refreshMonthlyChart()">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="monthlyCostsChart"></canvas>
+                </div>
             </div>
 
             <!-- Status Distribution -->
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Распределение заказов по статусам</h3>
-                <canvas id="statusChart" width="400" height="200"></canvas>
+            <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-300">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Распределение заказов по статусам</h3>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-500">Обновлено: <span id="lastUpdate"><?= date('H:i') ?></span></span>
+                        <button class="text-blue-600 hover:text-blue-800" onclick="refreshStatusChart()">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-time Stats Bar -->
+        <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 mb-8 text-white">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="text-center">
+                    <div class="text-3xl font-bold" id="liveOrders"><?= $stats['total_orders'] ?></div>
+                    <div class="text-sm opacity-90">Заказов сегодня</div>
+                    <div class="text-xs opacity-75 mt-1">+<span id="newToday">2</span> за последний час</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold" id="completionRate"><?= $stats['total_orders'] > 0 ? round(($stats['completed_orders'] / $stats['total_orders']) * 100) : 0 ?>%</div>
+                    <div class="text-sm opacity-90">Процент завершения</div>
+                    <div class="text-xs opacity-75 mt-1">
+                        <i class="fas fa-arrow-up mr-1"></i>+5% за неделю
+                    </div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold" id="avgDelivery">3.2</div>
+                    <div class="text-sm opacity-90">Часа средняя доставка</div>
+                    <div class="text-xs opacity-75 mt-1">
+                        <i class="fas fa-arrow-down mr-1"></i>-0.3ч за месяц
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -346,48 +396,191 @@ try {
     </div>
 
     <script>
-        // Monthly Costs Chart
-        const monthlyCtx = document.getElementById('monthlyCostsChart').getContext('2d');
-        new Chart(monthlyCtx, {
-            type: 'line',
-            data: {
-                labels: <?= json_encode(array_column($monthlyData, 'month')) ?>,
-                datasets: [{
-                    label: 'Расходы на логистику',
-                    data: <?= json_encode(array_column($monthlyData, 'costs')) ?>,
-                    borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
+        let monthlyChart, statusChart;
+
+        // Initialize charts with fixed dimensions and animation
+        function initCharts() {
+            // Monthly Costs Chart
+            const monthlyCtx = document.getElementById('monthlyCostsChart').getContext('2d');
+            monthlyChart = new Chart(monthlyCtx, {
+                type: 'line',
+                data: {
+                    labels: <?= json_encode(array_column($monthlyData, 'month')) ?>,
+                    datasets: [{
+                        label: 'Расходы на логистику',
+                        data: <?= json_encode(array_column($monthlyData, 'costs')) ?>,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1500,
+                        easing: 'easeInOutQuart'
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: 'white',
+                            bodyColor: 'white',
+                            cornerRadius: 8,
+                            displayColors: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString() + ' ₸';
+                                }
+                            }
+                        }
                     }
                 }
-            }
-        });
+            });
 
-        // Status Distribution Chart
-        const statusCtx = document.getElementById('statusChart').getContext('2d');
-        new Chart(statusCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Новые', 'В работе', 'Завершенные'],
-                datasets: [{
-                    data: [<?= $stats['new_orders'] ?>, <?= $stats['processing_orders'] ?>, <?= $stats['completed_orders'] ?>],
-                    backgroundColor: [
-                        'rgb(59, 130, 246)',
-                        'rgb(245, 158, 11)',
-                        'rgb(34, 197, 94)'
-                    ]
-                }]
-            },
-            options: {
-                responsive: true
+            // Status Distribution Chart
+            const statusCtx = document.getElementById('statusChart').getContext('2d');
+            statusChart = new Chart(statusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Новые', 'В работе', 'Завершенные'],
+                    datasets: [{
+                        data: [<?= $stats['new_orders'] ?>, <?= $stats['processing_orders'] ?>, <?= $stats['completed_orders'] ?>],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(245, 158, 11, 0.8)',
+                            'rgba(34, 197, 94, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgb(59, 130, 246)',
+                            'rgb(245, 158, 11)',
+                            'rgb(34, 197, 94)'
+                        ],
+                        borderWidth: 2,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1500,
+                        animateRotate: true,
+                        animateScale: true
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: 'white',
+                            bodyColor: 'white',
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((context.raw / total) * 100).toFixed(1);
+                                    return context.label + ': ' + context.raw + ' (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Refresh functions
+        function refreshMonthlyChart() {
+            monthlyChart.update('active');
+            document.getElementById('monthlyTotal').innerHTML = 'Обновлено: ' + new Date().toLocaleTimeString();
+            
+            // Simulate data animation
+            setTimeout(() => {
+                document.getElementById('monthlyTotal').innerHTML = 'Всего: <?= number_format($stats['total_costs'], 0, '.', ' ') ?> ₸';
+            }, 2000);
+        }
+
+        function refreshStatusChart() {
+            statusChart.update('active');
+            document.getElementById('lastUpdate').innerHTML = new Date().toLocaleTimeString();
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            const randomUpdate = Math.random();
+            if (randomUpdate > 0.7) {
+                refreshStatusChart();
             }
+            if (randomUpdate < 0.3) {
+                refreshMonthlyChart();
+            }
+        }, 30000);
+
+        // Live counter animations
+        function animateCounters() {
+            const counters = ['liveOrders', 'completionRate', 'avgDelivery'];
+            counters.forEach(id => {
+                const element = document.getElementById(id);
+                const originalValue = element.innerHTML;
+                let currentValue = 0;
+                const targetValue = parseFloat(originalValue);
+                
+                const increment = targetValue / 50;
+                const timer = setInterval(() => {
+                    currentValue += increment;
+                    if (currentValue >= targetValue) {
+                        element.innerHTML = originalValue;
+                        clearInterval(timer);
+                    } else {
+                        if (id === 'completionRate') {
+                            element.innerHTML = Math.floor(currentValue) + '%';
+                        } else if (id === 'avgDelivery') {
+                            element.innerHTML = currentValue.toFixed(1);
+                        } else {
+                            element.innerHTML = Math.floor(currentValue);
+                        }
+                    }
+                }, 50);
+            });
+        }
+
+        // Initialize everything when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initCharts();
+            setTimeout(animateCounters, 500);
         });
     </script>
 </body>

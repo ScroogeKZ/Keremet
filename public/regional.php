@@ -8,6 +8,7 @@ use App\TelegramService;
 
 $success = false;
 $error = '';
+$createdOrderId = null;
 
 // Function to validate Kazakhstan phone numbers
 function validateKazakhstanPhone($phoneNumber) {
@@ -104,6 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = $shipmentOrder->create($data);
         if ($result) {
             $success = true;
+            $createdOrderId = $result['id'];
             
             // Отправляем email уведомление
             try {
@@ -231,9 +233,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <p class="text-gray-600 text-base md:text-lg">Заполните форму для создания заявки на доставку между городами</p>
             </div>
             
-            <?php if ($success): ?>
-                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
-                    <strong>Успешно!</strong> Ваша заявка принята. Мы свяжемся с вами в ближайшее время.
+            <?php if ($success && $createdOrderId): ?>
+                <div class="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 text-green-800 px-6 py-4 rounded-xl mb-8 shadow-lg">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <span class="text-2xl">✅</span>
+                        </div>
+                        <div class="ml-3">
+                            <p class="font-semibold">Межгородской заказ успешно создан!</p>
+                            <div class="mt-3 p-4 bg-white rounded-lg border-2 border-green-200">
+                                <p class="font-bold text-lg text-green-900">🆔 Номер вашего заказа: <span class="text-2xl font-black"><?php echo htmlspecialchars($createdOrderId); ?></span></p>
+                                <p class="text-sm font-semibold text-green-700 mt-2">⚠️ ВАЖНО: Обязательно запишите этот номер заказа! Он понадобится для отслеживания статуса доставки.</p>
+                            </div>
+                            <p class="text-sm mt-2">Мы свяжемся с вами в ближайшее время для уточнения деталей.</p>
+                        </div>
+                    </div>
                 </div>
             <?php endif; ?>
             
