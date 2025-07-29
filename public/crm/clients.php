@@ -3,7 +3,7 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../vendor/autoload.php';
 
 use App\Auth;
-use App\Models\Client;
+use App\Models\ShipmentOrder;
 
 // Check authentication
 if (!Auth::isAuthenticated()) {
@@ -11,32 +11,62 @@ if (!Auth::isAuthenticated()) {
     exit;
 }
 
-$clientModel = new Client();
+$orderModel = new ShipmentOrder();
 
-// Handle client actions
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if ($_POST['action'] === 'verify_client' && isset($_POST['client_id'])) {
-        $clientModel->updateVerification($_POST['client_phone'], true);
-        header('Location: /crm/clients.php?verified=1');
-        exit;
+// Get delivery objects (unique addresses from orders)
+try {
+    $pdo = \Database::getInstance()->getConnection();
+    
+    // Filter query based on search parameters
+    $searchFilter = '';
+    $statusFilter = '';
+    $params = array();
+    
+    if (!empty($_GET['search'])) {
+        $searchFilter = " AND pickup_address LIKE :search";
+        $params[':search'] = '%' . $_GET['search'] . '%';
     }
+    
+    $query = "
+        SELECT 
+            pickup_address as address,
+            COUNT(*) as total_orders,
+            COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_orders,
+            MAX(created_at) as last_delivery,
+            CASE WHEN COUNT(*) >= 5 THEN 'active' ELSE 'inactive' END as status
+        FROM shipment_orders 
+        WHERE pickup_address IS NOT NULL AND pickup_address != '' {$searchFilter}
+        GROUP BY pickup_address
+        ORDER BY total_orders DESC
+    ";
+    
+    $stmt = $pdo->prepare($query);
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value);
+    }
+    $stmt->execute();
+    $deliveryObjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Get statistics
+    $objectStats = [
+        'total_objects' => count($deliveryObjects),
+        'active_objects' => count(array_filter($deliveryObjects, fn($obj) => $obj['status'] === 'active')),
+        'new_this_month' => count(array_filter($deliveryObjects, fn($obj) => 
+            strtotime($obj['last_delivery']) >= strtotime('first day of this month')
+        ))
+    ];
+    
+} catch (Exception $e) {
+    $deliveryObjects = [];
+    $objectStats = ['total_objects' => 0, 'active_objects' => 0, 'new_this_month' => 0];
 }
-
-// Get clients with filters
-$filters = [
-    'search' => $_GET['search'] ?? '',
-    'is_verified' => $_GET['is_verified'] ?? ''
-];
-
-$clients = $clientModel->getAll($filters);
-$clientStats = $clientModel->getStatistics();
 ?>
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Клиенты - CRM</title>
+    <title>Список объектов - CRM</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -79,11 +109,11 @@ $clientStats = $clientModel->getStatistics();
                           x-show="sidebarOpen">Заказы</span>
                 </a>
                 <a href="/crm/clients.php" class="flex items-center px-4 py-3 text-blue-700 bg-gradient-to-r from-blue-50 to-blue-100 border-r-4 border-blue-500 rounded-lg shadow-sm group"
-                   :title="!sidebarOpen ? 'Клиенты' : ''">
-                    <i class="fas fa-users w-5 text-blue-600" :class="sidebarOpen ? 'mr-3' : 'mx-auto'"></i>
+                   :title="!sidebarOpen ? 'Объекты' : ''">
+                    <i class="fas fa-building w-5 text-blue-600" :class="sidebarOpen ? 'mr-3' : 'mx-auto'"></i>
                     <span class="font-semibold transition-opacity duration-300" 
                           :class="sidebarOpen ? 'opacity-100' : 'opacity-0'" 
-                          x-show="sidebarOpen">Клиенты</span>
+                          x-show="sidebarOpen">Объекты</span>
                 </a>
                 <a href="/crm/notifications.php" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-lg transition-all duration-200 group"
                    :title="!sidebarOpen ? 'Уведомления' : ''">
@@ -158,10 +188,13 @@ $clientStats = $clientModel->getStatistics();
             <!-- Top Header -->
             <header class="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center justify-between px-6">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-900">Управление клиентами</h1>
-                    <p class="text-sm text-gray-600">Личные кабинеты и регистрации клиентов</p>
+                    <h1 class="text-2xl font-bold text-gray-900">Список объектов</h1>
+                    <p class="text-sm text-gray-600">Адреса и объекты доставки</p>
                 </div>
                 <div class="flex items-center space-x-4">
+                    <a href="/" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center">
+                        <i class="fas fa-globe mr-2"></i>На сайт
+                    </a>
                     <button class="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200">
                         <i class="fas fa-search text-gray-600"></i>
                     </button>
@@ -178,22 +211,22 @@ $clientStats = $clientModel->getStatistics();
                     <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow duration-200">
                         <div class="flex items-center">
                             <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mr-4">
-                                <i class="fas fa-users text-white text-xl"></i>
+                                <i class="fas fa-building text-white text-xl"></i>
                             </div>
                             <div>
-                                <p class="text-sm font-medium text-gray-600">Всего клиентов</p>
-                                <p class="text-2xl font-bold text-gray-900"><?= $clientStats['total_clients'] ?></p>
+                                <p class="text-sm font-medium text-gray-600">Всего объектов</p>
+                                <p class="text-2xl font-bold text-gray-900"><?= $objectStats['total_objects'] ?></p>
                             </div>
                         </div>
                     </div>
                     <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow duration-200">
                         <div class="flex items-center">
                             <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center mr-4">
-                                <i class="fas fa-check-circle text-white text-xl"></i>
+                                <i class="fas fa-map-marker-alt text-white text-xl"></i>
                             </div>
                             <div>
-                                <p class="text-sm font-medium text-gray-600">Подтвержденные</p>
-                                <p class="text-2xl font-bold text-gray-900"><?= $clientStats['verified_clients'] ?></p>
+                                <p class="text-sm font-medium text-gray-600">Активные</p>
+                                <p class="text-2xl font-bold text-gray-900"><?= $objectStats['active_objects'] ?></p>
                             </div>
                         </div>
                     </div>
@@ -204,7 +237,7 @@ $clientStats = $clientModel->getStatistics();
                             </div>
                             <div>
                                 <p class="text-sm font-medium text-gray-600">Новые за месяц</p>
-                                <p class="text-2xl font-bold text-gray-900"><?= $clientStats['new_this_month'] ?></p>
+                                <p class="text-2xl font-bold text-gray-900"><?= $objectStats['new_this_month'] ?></p>
                             </div>
                         </div>
                     </div>
@@ -215,14 +248,14 @@ $clientStats = $clientModel->getStatistics();
                     <form method="GET" class="flex flex-wrap gap-4 items-center">
                         <div class="flex-1 min-w-64">
                             <input type="text" name="search" 
-                                   value="<?= htmlspecialchars($filters['search']) ?>"
-                                   placeholder="Поиск по имени, телефону или email..."
+                                   value="<?= htmlspecialchars($_GET['search'] ?? '') ?>"
+                                   placeholder="Поиск по адресу объекта..."
                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         </div>
                         <select name="is_verified" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                            <option value="">Все клиенты</option>
-                            <option value="1" <?= $filters['is_verified'] === '1' ? 'selected' : '' ?>>Подтвержденные</option>
-                            <option value="0" <?= $filters['is_verified'] === '0' ? 'selected' : '' ?>>Не подтвержденные</option>
+                            <option value="">Все объекты</option>
+                            <option value="1" <?= ($_GET['is_verified'] ?? '') === '1' ? 'selected' : '' ?>>Активные</option>
+                            <option value="0" <?= ($_GET['is_verified'] ?? '') === '0' ? 'selected' : '' ?>>Неактивные</option>
                         </select>
                         <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">
                             <i class="fas fa-search mr-2"></i>Поиск
@@ -233,98 +266,86 @@ $clientStats = $clientModel->getStatistics();
                     </form>
                 </div>
 
-                <!-- Clients Table -->
-                <div class="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+                <!-- Delivery Objects Table -->
+                <div class="bg-white shadow overflow-hidden sm:rounded-xl border border-gray-100">
                     <div class="px-6 py-4 border-b border-gray-200">
-                        <h3 class="text-lg font-semibold text-gray-900">Список клиентов</h3>
+                        <h3 class="text-lg font-medium text-gray-900">Объекты доставки</h3>
+                        <p class="mt-1 text-sm text-gray-600">Адреса с историей доставок и статистикой</p>
                     </div>
+                    
                     <div class="overflow-x-auto">
-                        <table class="w-full">
+                        <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Клиент</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Контакты</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Адрес объекта</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Всего заказов</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Завершено</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Заказы</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Сумма</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Регистрация</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Последняя доставка</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
-                                <?php foreach ($clients as $client): ?>
-                                <tr class="hover:bg-gray-50 transition-colors duration-200">
-                                    <td class="px-6 py-4 whitespace-nowrap">
+                                <?php if (empty($deliveryObjects)): ?>
+                                <tr>
+                                    <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                                        <i class="fas fa-building text-4xl text-gray-300 mb-4"></i>
+                                        <p class="text-lg font-medium">Объекты доставки не найдены</p>
+                                        <p class="text-sm">Создайте заказы для появления объектов в списке</p>
+                                    </td>
+                                </tr>
+                                <?php else: ?>
+                                <?php foreach ($deliveryObjects as $object): ?>
+                                <tr class="hover:bg-gray-50 transition-colors duration-150">
+                                    <td class="px-6 py-4">
                                         <div class="flex items-center">
-                                            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                                                <i class="fas fa-user text-blue-600"></i>
+                                            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mr-3">
+                                                <i class="fas fa-building text-white text-sm"></i>
                                             </div>
-                                            <div>
-                                                <div class="text-sm font-medium text-gray-900"><?= htmlspecialchars($client['name']) ?></div>
-                                                <div class="text-sm text-gray-500">ID: <?= $client['id'] ?></div>
+                                            <div class="max-w-xs">
+                                                <div class="text-sm font-medium text-gray-900 truncate" title="<?= htmlspecialchars($object['address']) ?>">
+                                                    <?= htmlspecialchars($object['address']) ?>
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900"><?= htmlspecialchars($client['phone']) ?></div>
-                                        <?php if ($client['email']): ?>
-                                        <div class="text-sm text-gray-500"><?= htmlspecialchars($client['email']) ?></div>
-                                        <?php endif; ?>
+                                        <div class="text-sm font-medium text-gray-900"><?= $object['total_orders'] ?></div>
+                                        <div class="text-xs text-gray-500">доставок</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <?php if ($client['is_verified']): ?>
+                                        <div class="text-sm font-medium text-green-600"><?= $object['completed_orders'] ?></div>
+                                        <div class="text-xs text-gray-500">успешно</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <?php if ($object['status'] === 'active'): ?>
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                            <i class="fas fa-check-circle mr-1"></i>Подтвержден
+                                            <i class="fas fa-check-circle mr-1"></i>Активный
                                         </span>
                                         <?php else: ?>
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                            <i class="fas fa-clock mr-1"></i>Ожидает подтверждения
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                            <i class="fas fa-minus-circle mr-1"></i>Обычный
                                         </span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <span class="font-medium"><?= $client['total_orders'] ?></span> заказов
+                                        <?= date('d.m.Y', strtotime($object['last_delivery'])) ?>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?= number_format($client['total_spent'], 0, '.', ' ') ?> ₸
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <?= date('d.m.Y', strtotime($client['created_at'])) ?>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <div class="flex items-center space-x-2">
-                                            <a href="/crm/orders.php?search=<?= urlencode($client['phone']) ?>" 
-                                               class="text-blue-600 hover:text-blue-900 transition-colors duration-200"
-                                               title="Посмотреть заказы клиента">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
-                                            <?php if (!$client['is_verified']): ?>
-                                            <form method="POST" style="display: inline;">
-                                                <input type="hidden" name="action" value="verify_client">
-                                                <input type="hidden" name="client_id" value="<?= $client['id'] ?>">
-                                                <input type="hidden" name="client_phone" value="<?= $client['phone'] ?>">
-                                                <button type="submit" 
-                                                        class="text-green-600 hover:text-green-900 transition-colors duration-200"
-                                                        title="Подтвердить клиента"
-                                                        onclick="return confirm('Подтвердить клиента?')">
-                                                    <i class="fas fa-check"></i>
-                                                </button>
-                                            </form>
-                                            <?php endif; ?>
-                                        </div>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                        <a href="/crm/orders.php?search=<?= urlencode($object['address']) ?>" 
+                                           class="text-blue-600 hover:text-blue-800 font-medium">
+                                            <i class="fas fa-list mr-1"></i>Заказы
+                                        </a>
+                                        <button class="text-green-600 hover:text-green-800 ml-2" 
+                                                onclick="showObjectDetails('<?= htmlspecialchars($object['address']) ?>')">
+                                            <i class="fas fa-info-circle mr-1"></i>Детали
+                                        </button>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
+                                <?php endif; ?>
                             </tbody>
                         </table>
-                        
-                        <?php if (empty($clients)): ?>
-                        <div class="text-center py-12">
-                            <i class="fas fa-users text-gray-300 text-6xl mb-4"></i>
-                            <h3 class="text-lg font-medium text-gray-900 mb-2">Клиенты не найдены</h3>
-                            <p class="text-gray-500">Попробуйте изменить параметры поиска</p>
-                        </div>
-                        <?php endif; ?>
                     </div>
                 </div>
             </main>
@@ -338,8 +359,14 @@ $clientStats = $clientModel->getStatistics();
          x-show="show" 
          x-transition
          x-init="setTimeout(() => show = false, 3000)">
-        <i class="fas fa-check-circle mr-2"></i>Клиент успешно подтвержден
+        <i class="fas fa-check-circle mr-2"></i>Объект успешно обновлен
     </div>
     <?php endif; ?>
+
+    <script>
+    function showObjectDetails(address) {
+        alert('Подробная информация об объекте:\n\nАдрес: ' + address + '\n\nДля получения детальной информации перейдите в раздел "Заказы" и найдите заказы по этому адресу.');
+    }
+    </script>
 </body>
 </html>

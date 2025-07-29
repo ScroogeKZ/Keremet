@@ -14,15 +14,15 @@ if (!Auth::isAuthenticated()) {
 try {
     $pdo = \Database::getInstance()->getConnection();
     
-    // Revenue and orders statistics
+    // Logistics costs and orders statistics
     $stmt = $pdo->query("
         SELECT 
             COUNT(*) as total_orders,
             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_orders,
             SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END) as processing_orders,
             SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) as new_orders,
-            SUM(COALESCE(shipping_cost, 0)) as total_revenue,
-            AVG(COALESCE(shipping_cost, 0)) as avg_order_value
+            SUM(COALESCE(shipping_cost, 0)) as total_costs,
+            AVG(COALESCE(shipping_cost, 0)) as avg_cost_per_order
         FROM shipment_orders
     ");
     $stats = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -32,7 +32,7 @@ try {
         SELECT 
             TO_CHAR(created_at, 'YYYY-MM') as month,
             COUNT(*) as orders_count,
-            SUM(COALESCE(shipping_cost, 0)) as revenue
+            SUM(COALESCE(shipping_cost, 0)) as costs
         FROM shipment_orders
         WHERE created_at >= CURRENT_DATE - INTERVAL '6 months'
         GROUP BY TO_CHAR(created_at, 'YYYY-MM')
@@ -45,7 +45,7 @@ try {
         SELECT 
             COALESCE(destination_city, 'Астана') as city,
             COUNT(*) as orders_count,
-            SUM(COALESCE(shipping_cost, 0)) as revenue
+            SUM(COALESCE(shipping_cost, 0)) as costs
         FROM shipment_orders
         GROUP BY COALESCE(destination_city, 'Астана')
         ORDER BY orders_count DESC
@@ -69,7 +69,7 @@ try {
     
 } catch (Exception $e) {
     $error = 'Ошибка загрузки данных: ' . $e->getMessage();
-    $stats = ['total_orders' => 0, 'completed_orders' => 0, 'processing_orders' => 0, 'new_orders' => 0, 'total_revenue' => 0, 'avg_order_value' => 0];
+    $stats = ['total_orders' => 0, 'completed_orders' => 0, 'processing_orders' => 0, 'new_orders' => 0, 'total_costs' => 0, 'avg_cost_per_order' => 0];
     $monthlyData = [];
     $topDestinations = [];
     $cargoTypes = [];
@@ -173,6 +173,9 @@ try {
                     <p class="text-sm text-gray-600">Детальные показатели эффективности логистики</p>
                 </div>
                 <div class="flex items-center space-x-4">
+                    <a href="/" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center">
+                        <i class="fas fa-globe mr-2"></i>На сайт
+                    </a>
                     <button class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
                         <i class="fas fa-search"></i>
                     </button>
@@ -254,8 +257,8 @@ try {
                         </div>
                         <div class="ml-5 w-0 flex-1">
                             <dl>
-                                <dt class="text-sm font-medium text-gray-500 truncate">Общий доход</dt>
-                                <dd class="text-lg font-semibold text-gray-900"><?= number_format($stats['total_revenue'], 0, '.', ' ') ?> ₸</dd>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Общие расходы</dt>
+                                <dd class="text-lg font-semibold text-gray-900"><?= number_format($stats['total_costs'], 0, '.', ' ') ?> ₸</dd>
                             </dl>
                         </div>
                     </div>
@@ -270,8 +273,8 @@ try {
                         </div>
                         <div class="ml-5 w-0 flex-1">
                             <dl>
-                                <dt class="text-sm font-medium text-gray-500 truncate">Средний чек</dt>
-                                <dd class="text-lg font-semibold text-gray-900"><?= number_format($stats['avg_order_value'], 0, '.', ' ') ?> ₸</dd>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Средние расходы</dt>
+                                <dd class="text-lg font-semibold text-gray-900"><?= number_format($stats['avg_cost_per_order'], 0, '.', ' ') ?> ₸</dd>
                             </dl>
                         </div>
                     </div>
@@ -283,8 +286,8 @@ try {
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <!-- Monthly Revenue Chart -->
             <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Доходы по месяцам</h3>
-                <canvas id="monthlyRevenueChart" width="400" height="200"></canvas>
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Расходы на логистику по месяцам</h3>
+                <canvas id="monthlyCostsChart" width="400" height="200"></canvas>
             </div>
 
             <!-- Status Distribution -->
@@ -309,7 +312,7 @@ try {
                             <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                                 <div class="flex justify-between">
                                     <span><?= $destination['orders_count'] ?> заказов</span>
-                                    <span class="font-medium"><?= number_format($destination['revenue'], 0, '.', ' ') ?> ₸</span>
+                                    <span class="font-medium"><?= number_format($destination['costs'], 0, '.', ' ') ?> ₸</span>
                                 </div>
                             </dd>
                         </div>
@@ -343,15 +346,15 @@ try {
     </div>
 
     <script>
-        // Monthly Revenue Chart
-        const monthlyCtx = document.getElementById('monthlyRevenueChart').getContext('2d');
+        // Monthly Costs Chart
+        const monthlyCtx = document.getElementById('monthlyCostsChart').getContext('2d');
         new Chart(monthlyCtx, {
             type: 'line',
             data: {
                 labels: <?= json_encode(array_column($monthlyData, 'month')) ?>,
                 datasets: [{
-                    label: 'Доход',
-                    data: <?= json_encode(array_column($monthlyData, 'revenue')) ?>,
+                    label: 'Расходы на логистику',
+                    data: <?= json_encode(array_column($monthlyData, 'costs')) ?>,
                     borderColor: 'rgb(59, 130, 246)',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     tension: 0.1

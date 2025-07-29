@@ -154,6 +154,9 @@ $all_orders = $orders->getAll();
                     <p class="text-sm text-gray-600">Управление несколькими заказами одновременно</p>
                 </div>
                 <div class="flex items-center space-x-4">
+                    <a href="/" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center">
+                        <i class="fas fa-globe mr-2"></i>На сайт
+                    </a>
                     <button class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
                         <i class="fas fa-search"></i>
                     </button>

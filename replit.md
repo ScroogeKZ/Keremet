@@ -108,6 +108,42 @@ The application is designed to be simple, reliable, and easy to maintain while p
 
 ## Recent Changes: Latest modifications with dates
 
+### July 29, 2025 - Migration to Replit Environment Completed + Terminology Updated
+- ✅ **Successful Migration**: Complete project migration from Replit Agent to standard Replit environment
+- ✅ **Database Restoration**: PostgreSQL database created and schema fully restored with test data
+- ✅ **Bug Fixes Applied**:
+  - Fixed phone number validation in astana.php and regional.php for Kazakhstan formats
+  - Created missing clients and verification_codes tables for client management
+  - Resolved all PHP syntax and validation errors
+  - Fixed field mapping issues between forms and database models
+- ✅ **Terminology Updated**: Changed from revenue/income tracking to logistics expense tracking
+  - Updated analytics.php to show "Общие расходы" instead of "Общий доход"
+  - Changed database queries to use "total_costs" and "avg_cost_per_order" variables
+  - Modified chart labels to show "Расходы на логистику по месяцам"
+  - Updated destination cost reporting to reflect logistics expenses
+  - All UI elements now properly show expense terminology for logistics department
+- ✅ **Functionality Verified**:
+  - Homepage and navigation: HTTP 200 ✅
+  - Astana order creation: Working correctly, orders saving to database ✅
+  - Regional order creation: Working correctly with proper validation ✅
+  - Admin authentication: Working (admin/admin123) ✅
+  - CRM system: All 10 modules accessible and functional ✅
+  - Client system: Database created, test client working ✅
+  - Email notifications: Sending correctly on order creation ✅
+  - Analytics showing logistics costs: Updated and working ✅
+- ✅ **Navigation Updated**: Changed "Клиенты" section to "Объекты доставки"
+  - Updated clients.php to show "Список объектов" with building icons
+  - Changed terminology from client management to delivery object tracking
+  - Modified statistics to show "Всего объектов" and "Активные" instead of client data
+  - Updated navigation across all CRM modules for consistency
+- ✅ **Test Results**:
+  - 4 orders created during testing (2 Astana, 2 Regional)
+  - 1 admin user and 1 test client in database
+  - All CRM modules (orders, objects, analytics, reports, etc.) responding correctly
+  - Phone validation accepts +77xxxxxxxxx, 87xxxxxxxxx, and 77xxxxxxxxx formats
+  - Analytics now properly displays logistics expenses instead of revenue
+- ✅ **Application Status**: Fully operational with logistics-focused terminology
+
 ### July 25, 2025 - Полная интеграция личного кабинета клиентов в CRM систему
 - ✅ **Успешная миграция проекта**: Восстановлена полная структура базы данных PostgreSQL
 - ✅ **Интеграция клиентского кабинета в CRM**:

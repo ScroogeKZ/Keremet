@@ -157,6 +157,9 @@ $stats = $orderModel->getStatistics();
                     <p class="text-sm text-gray-600">Добро пожаловать в систему управления заказами</p>
                 </div>
                 <div class="flex items-center space-x-4">
+                    <a href="/" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center">
+                        <i class="fas fa-globe mr-2"></i>На сайт
+                    </a>
                     <button class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
                         <i class="fas fa-search"></i>
                     </button>
@@ -225,7 +228,7 @@ $stats = $orderModel->getStatistics();
                 <div class="p-6">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-gray-600 mb-1">Общий доход</p>
+                            <p class="text-sm font-medium text-gray-600 mb-1">Общие расходы</p>
                             <p class="text-3xl font-bold text-gray-900"><?= number_format($stats['total_revenue'] ?? 0, 0, '.', ' ') ?> ₸</p>
                             <p class="text-xs text-purple-600 mt-1">
                                 <i class="fas fa-trending-up mr-1"></i>За текущий период

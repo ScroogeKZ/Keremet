@@ -10,10 +10,16 @@ $error = '';
 
 // Function to validate Kazakhstan phone numbers
 function validateKazakhstanPhone($phoneNumber) {
+    if (empty($phoneNumber)) {
+        return false;
+    }
+    
     $phone = preg_replace('/[^0-9+]/', '', $phoneNumber); // Remove all non-digits except +
     
-    // Valid formats: +77xxxxxxxxx or 87xxxxxxxxx
-    if (preg_match('/^\+77\d{9}$/', $phone) || preg_match('/^87\d{9}$/', $phone)) {
+    // Valid formats: +77xxxxxxxxx or 87xxxxxxxxx or just 77xxxxxxxxx
+    if (preg_match('/^\+77\d{9}$/', $phone) || 
+        preg_match('/^87\d{9}$/', $phone) || 
+        preg_match('/^77\d{9}$/', $phone)) {
         return true;
     }
     return false;
@@ -64,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Неверный формат номера телефона отправителя. Используйте формат +77xxxxxxxxx или 87xxxxxxxxx');
         }
         
-        if (!validateKazakhstanPhone($recipientPhone)) {
+        if (!empty($recipientPhone) && !validateKazakhstanPhone($recipientPhone)) {
             throw new Exception('Неверный формат номера телефона получателя. Используйте формат +77xxxxxxxxx или 87xxxxxxxxx');
         }
 
@@ -179,7 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="hidden md:flex space-x-4">
                     <a href="/" class="text-gray-600 hover:text-primary font-medium px-4 py-2 rounded-xl hover:bg-gray-100 transition-all duration-200">Главная</a>
                     <a href="/regional.php" class="text-gray-600 hover:text-primary font-medium px-4 py-2 rounded-xl hover:bg-gray-100 transition-all duration-200">Межгородские заказы</a>
-                    <a href="/admin/login.php" class="text-gray-600 hover:text-primary font-medium px-4 py-2 rounded-xl hover:bg-gray-100 transition-all duration-200">Панель управления</a>
+                    <a href="/crm/login.php" class="text-gray-600 hover:text-primary font-medium px-4 py-2 rounded-xl hover:bg-gray-100 transition-all duration-200">CRM Система</a>
                 </div>
             </div>
             <!-- Mobile menu -->
@@ -187,7 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="flex flex-col space-y-3">
                     <a href="/" class="text-gray-600 hover:text-primary font-medium px-4 py-3 rounded-xl hover:bg-gray-100 text-center">Главная</a>
                     <a href="/regional.php" class="text-gray-600 hover:text-primary font-medium px-4 py-3 rounded-xl hover:bg-gray-100 text-center">Межгородские заказы</a>
-                    <a href="/admin/login.php" class="text-gray-600 hover:text-primary font-medium px-4 py-3 rounded-xl hover:bg-gray-100 text-center">Панель управления</a>
+                    <a href="/crm/login.php" class="text-gray-600 hover:text-primary font-medium px-4 py-3 rounded-xl hover:bg-gray-100 text-center">CRM Система</a>
                 </div>
             </div>
         </div>
