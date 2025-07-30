@@ -21,6 +21,18 @@ if (!$orderId) {
     exit;
 }
 
+// Get order details first
+try {
+    $order = $orderModel->getById($orderId);
+    if (!$order) {
+        header('Location: /crm/orders.php');
+        exit;
+    }
+} catch (Exception $e) {
+    header('Location: /crm/orders.php');
+    exit;
+}
+
 // Handle form submission for updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_order') {
     try {
@@ -41,28 +53,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             'destination_city' => $_POST['destination_city'] ?? '',
             'delivery_method' => $_POST['delivery_method'] ?? '',
             'desired_arrival_date' => $_POST['desired_arrival_date'] ?? '',
-            'shipping_cost' => $_POST['shipping_cost'] ?? null
+            'shipping_cost' => $_POST['shipping_cost'] ?? null,
+            'uploaded_files' => $order['uploaded_files'] ?? '' // Preserve existing uploaded files
         ];
         
         $result = $orderModel->updateOrder($orderId, $updateData);
         if ($result) {
             $success = true;
+            // Refresh order data after update
+            $order = $orderModel->getById($orderId);
         }
     } catch (Exception $e) {
         $error = $e->getMessage();
     }
-}
-
-// Get order details
-try {
-    $order = $orderModel->getById($orderId);
-    if (!$order) {
-        header('Location: /crm/orders.php');
-        exit;
-    }
-} catch (Exception $e) {
-    header('Location: /crm/orders.php');
-    exit;
 }
 
 $cargoTypes = [
@@ -340,6 +343,65 @@ $cargoTypes = [
                     </div>
                 </div>
 
+                <!-- Uploaded Photos -->
+                <?php if (!empty($order['uploaded_files'])): ?>
+                <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                    <div class="px-4 py-5 sm:px-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">
+                            <i class="fas fa-images mr-2 text-blue-600"></i>Прикрепленные фотографии
+                        </h3>
+                        <p class="mt-1 max-w-2xl text-sm text-gray-500">
+                            Фотографии, загруженные при создании заказа
+                        </p>
+                    </div>
+                    <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <?php 
+                            $photoFiles = explode(',', $order['uploaded_files']);
+                            foreach ($photoFiles as $photoFile): 
+                                if (!empty(trim($photoFile))):
+                            ?>
+                                <div class="relative group">
+                                    <div class="aspect-w-3 aspect-h-2 rounded-lg overflow-hidden bg-gray-100">
+                                        <img src="<?= htmlspecialchars(trim($photoFile)) ?>" 
+                                             alt="Фотография заказа" 
+                                             class="w-full h-48 object-cover object-center group-hover:opacity-75 transition-opacity duration-200 cursor-pointer"
+                                             onclick="openPhotoModal('<?= htmlspecialchars(trim($photoFile)) ?>')">
+                                    </div>
+                                    <div class="mt-2 flex items-center justify-between">
+                                        <p class="text-sm text-gray-600 truncate">
+                                            <?= basename(trim($photoFile)) ?>
+                                        </p>
+                                        <a href="<?= htmlspecialchars(trim($photoFile)) ?>" 
+                                           download
+                                           class="text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            <?php 
+                                endif;
+                            endforeach; 
+                            ?>
+                        </div>
+                    </div>
+                </div>
+                <?php else: ?>
+                <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                    <div class="px-4 py-5 sm:px-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">
+                            <i class="fas fa-images mr-2 text-gray-400"></i>Прикрепленные фотографии
+                        </h3>
+                    </div>
+                    <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
+                        <div class="text-center py-8">
+                            <i class="fas fa-camera text-gray-300 text-4xl mb-4"></i>
+                            <p class="text-gray-500">К этому заказу не прикреплены фотографии</p>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <!-- Additional Information -->
                 <div class="bg-white shadow overflow-hidden sm:rounded-lg">
                     <div class="px-4 py-5 sm:px-6">
@@ -380,5 +442,43 @@ $cargoTypes = [
             </form>
         </div>
     </div>
+
+    <!-- Photo Modal -->
+    <div id="photoModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+        <div class="relative bg-white rounded-lg max-w-4xl max-h-full overflow-hidden">
+            <div class="absolute top-4 right-4 z-10">
+                <button onclick="closePhotoModal()" 
+                        class="bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full p-2 text-gray-600 hover:text-gray-800">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <img id="modalPhoto" src="" alt="Увеличенное фото" class="max-w-full max-h-screen object-contain">
+        </div>
+    </div>
+
+    <script>
+        function openPhotoModal(imageSrc) {
+            document.getElementById('modalPhoto').src = imageSrc;
+            document.getElementById('photoModal').classList.remove('hidden');
+        }
+
+        function closePhotoModal() {
+            document.getElementById('photoModal').classList.add('hidden');
+        }
+
+        // Close modal when clicking outside the image
+        document.getElementById('photoModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePhotoModal();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closePhotoModal();
+            }
+        });
+    </script>
 </body>
 </html>

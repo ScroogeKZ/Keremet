@@ -36,11 +36,11 @@ class ShipmentOrder {
         $sql = "INSERT INTO shipment_orders (
             order_type, pickup_city, pickup_address, ready_time, contact_name, contact_phone,
             cargo_type, weight, dimensions, destination_city, delivery_address,
-            delivery_method, desired_arrival_date, recipient_contact, recipient_phone, notes, comment, status, client_id
+            delivery_method, desired_arrival_date, recipient_contact, recipient_phone, notes, comment, status, client_id, uploaded_files
         ) VALUES (
             :order_type, :pickup_city, :pickup_address, :ready_time, :contact_name, :contact_phone,
             :cargo_type, :weight, :dimensions, :destination_city, :delivery_address,
-            :delivery_method, :desired_arrival_date, :recipient_contact, :recipient_phone, :notes, :comment, :status, :client_id
+            :delivery_method, :desired_arrival_date, :recipient_contact, :recipient_phone, :notes, :comment, :status, :client_id, :uploaded_files
         ) RETURNING *";
         
         try {
@@ -67,7 +67,8 @@ class ShipmentOrder {
                 ':notes' => $data['notes'] ?? null,
                 ':comment' => $data['comment'] ?? null,
                 ':status' => $status,
-                ':client_id' => $clientId
+                ':client_id' => $clientId,
+                ':uploaded_files' => $data['uploaded_files'] ?? null
             ]);
             
             $result = $stmt->fetch();
