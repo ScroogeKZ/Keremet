@@ -70,7 +70,16 @@ class ShipmentOrder {
                 ':client_id' => $clientId
             ]);
             
-            return $stmt->fetch();
+            $result = $stmt->fetch();
+            
+            // Initialize tracking for new order
+            if ($result) {
+                require_once __DIR__ . '/ShipmentTracking.php';
+                $tracking = new ShipmentTracking();
+                $tracking->initializeOrderTracking($result['id']);
+            }
+            
+            return $result;
         } catch (PDOException $e) {
             error_log("Error creating shipment order: " . $e->getMessage());
             throw new Exception("Failed to create shipment order: " . $e->getMessage());
@@ -133,6 +142,9 @@ class ShipmentOrder {
     }
     
     public function updateStatus($id, $status) {
+        require_once __DIR__ . '/ShipmentTracking.php';
+        $tracking = new ShipmentTracking();
+        
         $sql = "UPDATE shipment_orders SET status = :status, updated_at = CURRENT_TIMESTAMP WHERE id = :id RETURNING *";
         
         try {
@@ -141,7 +153,26 @@ class ShipmentOrder {
                 ':id' => $id,
                 ':status' => $status
             ]);
-            return $stmt->fetch();
+            $result = $stmt->fetch();
+            
+            // Add tracking entry when status changes
+            if ($result) {
+                $statusDescriptions = [
+                    'pending' => 'Заказ ожидает обработки',
+                    'confirmed' => 'Заказ подтвержден и принят в работу',
+                    'processing' => 'Заказ обрабатывается в системе',
+                    'in_progress' => 'Курьер направляется за грузом',
+                    'out_for_delivery' => 'Груз в пути к получателю',
+                    'completed' => 'Заказ успешно выполнен',
+                    'delivered' => 'Груз доставлен получателю',
+                    'cancelled' => 'Заказ отменен'
+                ];
+                
+                $description = $statusDescriptions[$status] ?? "Статус изменен на: $status";
+                $tracking->addTrackingEntry($id, $status, null, $description, 'admin');
+            }
+            
+            return $result;
         } catch (PDOException $e) {
             error_log("Error updating shipment order status: " . $e->getMessage());
             throw new Exception("Failed to update shipment order status");
@@ -256,6 +287,64 @@ class ShipmentOrder {
         } catch (PDOException $e) {
             error_log("Error deleting shipment order: " . $e->getMessage());
             throw new Exception("Failed to delete shipment order");
+        }
+    }
+    
+    public function assignRoute($orderIds, $routeName) {
+        if (empty($orderIds) || empty($routeName)) {
+            return false;
+        }
+        
+        $placeholders = str_repeat('?,', count($orderIds) - 1) . '?';
+        $sql = "UPDATE shipment_orders SET route_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN ($placeholders)";
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            $params = array_merge([$routeName], $orderIds);
+            return $stmt->execute($params);
+        } catch (PDOException $e) {
+            error_log("Error assigning route: " . $e->getMessage());
+            throw new Exception("Failed to assign route");
+        }
+    }
+    
+    public function updatePriority($orderIds, $priority) {
+        if (empty($orderIds) || empty($priority)) {
+            return false;
+        }
+        
+        $placeholders = str_repeat('?,', count($orderIds) - 1) . '?';
+        $sql = "UPDATE shipment_orders SET notes = CASE 
+                    WHEN notes IS NULL OR notes = '' THEN '[Приоритет: ' || ? || ']'
+                    WHEN notes NOT LIKE '%[Приоритет:%' THEN notes || ' [Приоритет: ' || ? || ']'
+                    ELSE REGEXP_REPLACE(notes, '\\[Приоритет: [^\\]]*\\]', '[Приоритет: ' || ? || ']')
+                END, updated_at = CURRENT_TIMESTAMP WHERE id IN ($placeholders)";
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            $params = array_merge([$priority, $priority, $priority], $orderIds);
+            return $stmt->execute($params);
+        } catch (PDOException $e) {
+            error_log("Error updating priority: " . $e->getMessage());
+            throw new Exception("Failed to update priority");
+        }
+    }
+    
+    public function bulkUpdateDeliveryDate($orderIds, $date) {
+        if (empty($orderIds) || empty($date)) {
+            return false;
+        }
+        
+        $placeholders = str_repeat('?,', count($orderIds) - 1) . '?';
+        $sql = "UPDATE shipment_orders SET desired_arrival_date = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN ($placeholders)";
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            $params = array_merge([$date], $orderIds);
+            return $stmt->execute($params);
+        } catch (PDOException $e) {
+            error_log("Error updating delivery date: " . $e->getMessage());
+            throw new Exception("Failed to update delivery date");
         }
     }
     

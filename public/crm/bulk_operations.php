@@ -47,8 +47,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
             case 'assign_route':
                 $route_name = $_POST['route_name'] ?? '';
-                // This would typically update a route field in the database
-                $message = "Маршрут '$route_name' назначен для " . count($selected_orders) . " заказов";
+                if (empty($route_name)) {
+                    $error = 'Укажите название маршрута';
+                    break;
+                }
+                if ($orders->assignRoute($selected_orders, $route_name)) {
+                    $message = "Маршрут '$route_name' назначен для " . count($selected_orders) . " заказов";
+                } else {
+                    $error = 'Ошибка при назначении маршрута';
+                }
+                break;
+                
+            case 'update_priority':
+                $priority = $_POST['priority'] ?? '';
+                if (empty($priority)) {
+                    $error = 'Укажите приоритет';
+                    break;
+                }
+                if ($orders->updatePriority($selected_orders, $priority)) {
+                    $message = "Приоритет '$priority' установлен для " . count($selected_orders) . " заказов";
+                } else {
+                    $error = 'Ошибка при установке приоритета';
+                }
+                break;
+                
+            case 'update_delivery_date':
+                $delivery_date = $_POST['delivery_date'] ?? '';
+                if (empty($delivery_date)) {
+                    $error = 'Укажите дату доставки';
+                    break;
+                }
+                if ($orders->bulkUpdateDeliveryDate($selected_orders, $delivery_date)) {
+                    $message = "Дата доставки '$delivery_date' установлена для " . count($selected_orders) . " заказов";
+                } else {
+                    $error = 'Ошибка при установке даты доставки';
+                }
                 break;
         }
     }
@@ -203,6 +236,8 @@ $all_orders = $orders->getAll();
                                     <option value="">Выберите операцию</option>
                                     <option value="update_status">Обновить статус</option>
                                     <option value="assign_route">Назначить маршрут</option>
+                                    <option value="update_priority">Установить приоритет</option>
+                                    <option value="update_delivery_date">Изменить дату доставки</option>
                                     <option value="delete">Удалить заказы</option>
                                 </select>
                             </div>
@@ -221,6 +256,23 @@ $all_orders = $orders->getAll();
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Название маршрута</label>
                                 <input type="text" name="route_name" placeholder="Например: Маршрут А1" 
                                        class="w-full border border-gray-300 rounded-md px-3 py-2">
+                            </div>
+                            
+                            <div id="priority-field" class="hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Приоритет</label>
+                                <select name="priority" class="w-full border border-gray-300 rounded-md px-3 py-2">
+                                    <option value="низкий">Низкий</option>
+                                    <option value="обычный" selected>Обычный</option>
+                                    <option value="высокий">Высокий</option>
+                                    <option value="срочный">Срочный</option>
+                                </select>
+                            </div>
+                            
+                            <div id="delivery-date-field" class="hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Дата доставки</label>
+                                <input type="date" name="delivery_date" 
+                                       class="w-full border border-gray-300 rounded-md px-3 py-2"
+                                       min="<?= date('Y-m-d') ?>">
                             </div>
                         </div>
                         
@@ -312,16 +364,24 @@ $all_orders = $orders->getAll();
         document.getElementById('action-select').addEventListener('change', function() {
             const statusField = document.getElementById('status-field');
             const routeField = document.getElementById('route-field');
+            const priorityField = document.getElementById('priority-field');
+            const deliveryDateField = document.getElementById('delivery-date-field');
             
             // Hide all fields first
             statusField.classList.add('hidden');
             routeField.classList.add('hidden');
+            priorityField.classList.add('hidden');
+            deliveryDateField.classList.add('hidden');
             
             // Show relevant field based on selection
             if (this.value === 'update_status') {
                 statusField.classList.remove('hidden');
             } else if (this.value === 'assign_route') {
                 routeField.classList.remove('hidden');
+            } else if (this.value === 'update_priority') {
+                priorityField.classList.remove('hidden');
+            } else if (this.value === 'update_delivery_date') {
+                deliveryDateField.classList.remove('hidden');
             }
         });
 

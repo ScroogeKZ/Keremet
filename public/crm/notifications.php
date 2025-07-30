@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../vendor/autoload.php';
 
 use App\Auth;
+use App\Models\Notification;
 
 // Check authentication
 if (!Auth::isAuthenticated()) {
@@ -11,99 +12,70 @@ if (!Auth::isAuthenticated()) {
     exit;
 }
 
-// Initialize read notifications in session if not exists
-if (!isset($_SESSION['read_notifications'])) {
-    $_SESSION['read_notifications'] = [3, 4]; // Initially notifications 3 and 4 are read
-}
+// Initialize notification model
+$notificationModel = new Notification();
 
-// Sample notifications data (in a real system, this would come from database)
-$all_notifications = [
-    [
-        'id' => 1,
-        'type' => 'new_order',
-        'title' => 'Новый заказ #1024',
-        'message' => 'Получен новый заказ на доставку по Астане',
-        'time' => '2 минуты назад',
-        'icon' => 'fas fa-box',
-        'color' => 'blue'
-    ],
-    [
-        'id' => 2,
-        'type' => 'status_change',
-        'title' => 'Заказ #1023 завершен',
-        'message' => 'Доставка металлических плинтусов завершена успешно',
-        'time' => '15 минут назад',
-        'icon' => 'fas fa-check-circle',
-        'color' => 'green'
-    ],
-    [
-        'id' => 3,
-        'type' => 'urgent',
-        'title' => 'Срочная доставка',
-        'message' => 'Клиент запросил срочную доставку на завтра',
-        'time' => '1 час назад',
-        'icon' => 'fas fa-exclamation-triangle',
-        'color' => 'red'
-    ],
-    [
-        'id' => 4,
-        'type' => 'system',
-        'title' => 'Обновление системы',
-        'message' => 'Система была обновлена до версии 2.1',
-        'time' => '3 часа назад',
-        'icon' => 'fas fa-cogs',
-        'color' => 'gray'
-    ],
-    [
-        'id' => 5,
-        'type' => 'new_order',
-        'title' => 'Новый заказ #1025',
-        'message' => 'Региональный заказ в Алматы принят в обработку',
-        'time' => '30 минут назад',
-        'icon' => 'fas fa-box',
-        'color' => 'blue'
-    ]
-];
+// Get current user ID from session
+$currentUserId = $_SESSION['user_id'] ?? 1; // Default to admin user
 
-// Add read status to notifications
-$notifications = array_map(function($notification) {
-    $notification['read'] = in_array($notification['id'], $_SESSION['read_notifications']);
-    return $notification;
-}, $all_notifications);
+// Get all notifications for current user
+$allNotifications = $notificationModel->getForUser($currentUserId);
+
+// Format notifications for display
+$notifications = array_map(function($notification) use ($notificationModel) {
+    return [
+        'id' => $notification['id'],
+        'type' => $notification['type'],
+        'title' => $notification['title'],
+        'message' => $notification['message'],
+        'time' => $notificationModel->formatTime($notification['created_at']),
+        'icon' => $notification['icon'],
+        'color' => $notification['color'],
+        'read' => $notification['is_read'],
+        'related_id' => $notification['related_id'],
+        'related_type' => $notification['related_type']
+    ];
+}, $allNotifications);
+
+// Get unread count
+$unreadCount = $notificationModel->getUnreadCount($currentUserId);
 
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         if ($_POST['action'] === 'mark_read' && isset($_POST['notification_id'])) {
             $notification_id = (int)$_POST['notification_id'];
-            if (!in_array($notification_id, $_SESSION['read_notifications'])) {
-                $_SESSION['read_notifications'][] = $notification_id;
-            }
+            $success = $notificationModel->markAsRead($notification_id, $currentUserId);
             
             if (isset($_POST['ajax'])) {
                 header('Content-Type: application/json');
-                echo json_encode(['success' => true, 'message' => 'Уведомление отмечено как прочитанное']);
+                echo json_encode([
+                    'success' => $success, 
+                    'message' => $success ? 'Уведомление отмечено как прочитанное' : 'Ошибка при обновлении'
+                ]);
                 exit;
             }
         } elseif ($_POST['action'] === 'mark_all_read') {
-            $all_ids = array_column($all_notifications, 'id');
-            $_SESSION['read_notifications'] = array_unique(array_merge($_SESSION['read_notifications'], $all_ids));
+            $success = $notificationModel->markAllAsRead($currentUserId);
             
             if (isset($_POST['ajax'])) {
                 header('Content-Type: application/json');
-                echo json_encode(['success' => true, 'message' => 'Все уведомления отмечены как прочитанные']);
+                echo json_encode([
+                    'success' => $success, 
+                    'message' => $success ? 'Все уведомления отмечены как прочитанные' : 'Ошибка при обновлении'
+                ]);
                 exit;
             }
         } elseif ($_POST['action'] === 'delete' && isset($_POST['notification_id'])) {
             $notification_id = (int)$_POST['notification_id'];
-            // Mark as read and "deleted" (in real system, would update database)
-            if (!in_array($notification_id, $_SESSION['read_notifications'])) {
-                $_SESSION['read_notifications'][] = $notification_id;
-            }
+            $success = $notificationModel->delete($notification_id, $currentUserId);
             
             if (isset($_POST['ajax'])) {
                 header('Content-Type: application/json');
-                echo json_encode(['success' => true, 'message' => 'Уведомление удалено']);
+                echo json_encode([
+                    'success' => $success, 
+                    'message' => $success ? 'Уведомление удалено' : 'Ошибка при удалении'
+                ]);
                 exit;
             }
         }
@@ -158,7 +130,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <a href="/crm/notifications.php" class="flex items-center px-4 py-3 text-blue-700 bg-gradient-to-r from-blue-50 to-blue-100 border-r-4 border-blue-500 rounded-lg shadow-sm">
                     <i class="fas fa-bell mr-3 w-5 text-blue-600"></i>
                     <span class="font-semibold">Уведомления</span>
-                    <span class="ml-auto bg-red-500 text-white text-xs px-2 py-1 rounded-full">3</span>
+                    <?php if ($unreadCount > 0): ?>
+                    <span class="ml-auto bg-red-500 text-white text-xs px-2 py-1 rounded-full"><?= $unreadCount ?></span>
+                    <?php endif; ?>
                 </a>
                 <a href="/crm/calendar.php" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-lg transition-all duration-200 group">
                     <i class="fas fa-calendar mr-3 w-5 text-gray-500 group-hover:text-blue-600"></i>

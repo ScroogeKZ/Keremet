@@ -81,48 +81,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
         }
         
-        // Функция для генерации информации о заказе
+        // Функция для получения реальной информации о заказе
         function generateOrderInfo($order) {
+            global $db;
+            
+            // Get real tracking history from database
+            $trackingStmt = $db->prepare("
+                SELECT status, location, description, timestamp, created_by 
+                FROM shipment_tracking 
+                WHERE order_id = ? 
+                ORDER BY timestamp ASC
+            ");
+            $trackingStmt->execute([$order['id']]);
+            $trackingEntries = $trackingStmt->fetchAll(PDO::FETCH_ASSOC);
+            
             $statusHistory = [];
-            $created = new DateTime($order['created_at']);
             
-            $statusHistory[] = [
-                'status' => 'Заказ создан',
-                'timestamp' => $created->format('Y-m-d H:i:s'),
-                'description' => 'Заявка на доставку принята в обработку'
-            ];
-            
-            if ($order['status'] !== 'pending') {
-                $processed = clone $created;
-                $processed->add(new DateInterval('PT30M'));
+            if (empty($trackingEntries)) {
+                // Fallback: Create initial tracking entry if none exists
                 $statusHistory[] = [
-                    'status' => 'В обработке',
-                    'timestamp' => $processed->format('Y-m-d H:i:s'),
-                    'description' => 'Заказ передан в отдел логистики'
+                    'status' => 'Заказ создан',
+                    'timestamp' => $order['created_at'],
+                    'description' => 'Заявка на доставку принята в обработку'
                 ];
-            }
-            
-            if ($order['status'] === 'in_progress') {
-                $pickup = clone $created;
-                $pickup->add(new DateInterval('PT2H'));
-                $statusHistory[] = [
-                    'status' => 'Забор груза',
-                    'timestamp' => $pickup->format('Y-m-d H:i:s'),
-                    'description' => 'Курьер выехал за грузом'
-                ];
-            }
-            
-            if ($order['status'] === 'completed') {
-                $delivered = clone $created;
-                $delivered->add(new DateInterval('PT4H'));
-                $statusHistory[] = [
-                    'status' => 'Доставлено',
-                    'timestamp' => $delivered->format('Y-m-d H:i:s'),
-                    'description' => 'Груз успешно доставлен получателю'
-                ];
+            } else {
+                // Use real tracking data
+                foreach ($trackingEntries as $entry) {
+                    $statusHistory[] = [
+                        'status' => $entry['status'],
+                        'timestamp' => $entry['timestamp'],
+                        'description' => $entry['description'] ?: $entry['status'],
+                        'location' => $entry['location']
+                    ];
+                }
             }
             
             // Расчет примерного времени доставки
+            $created = new DateTime($order['created_at']);
             $estimatedDelivery = clone $created;
             if (strpos($order['delivery_address'], 'Астана') !== false) {
                 $estimatedDelivery->add(new DateInterval('PT4H')); // 4 часа для Астаны
@@ -153,13 +148,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'notes' => $order['notes'],
                 'status_history' => $statusHistory,
                 'tracking_info' => [
-                    'current_location' => $order['status'] === 'completed' ? $order['delivery_address'] : 'Астана, склад',
+                    'current_location' => !empty($trackingEntries) ? 
+                        (end($trackingEntries)['location'] ?: 'Астана, офис') : 
+                        ($order['status'] === 'completed' ? $order['delivery_address'] : 'Астана, офис'),
                     'next_checkpoint' => $order['status'] === 'completed' ? null : $order['delivery_address'],
                     'progress_percentage' => [
-                        'pending' => 25,
-                        'new' => 0,
-                        'in_progress' => 75,
+                        'pending' => 10,
+                        'new' => 5,
+                        'confirmed' => 20,
+                        'processing' => 30,
+                        'in_progress' => 60,
+                        'out_for_delivery' => 80,
                         'completed' => 100,
+                        'delivered' => 100,
                         'cancelled' => 0
                     ][$order['status']] ?? 0
                 ]

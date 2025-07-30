@@ -1,9 +1,11 @@
 <?php
-require_once '../../vendor/autoload.php';
+session_start();
+require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../vendor/autoload.php';
 
 use App\Auth;
-
-session_start();
+use App\Models\Setting;
+use App\Models\User;
 
 // Check authentication
 if (!Auth::isAuthenticated()) {
@@ -11,117 +13,100 @@ if (!Auth::isAuthenticated()) {
     exit;
 }
 
-// Initialize settings storage if not exists
-if (!isset($_SESSION['app_settings'])) {
-    $_SESSION['app_settings'] = [
-        'profile' => [
-            'username' => 'admin',
-            'email' => 'admin@hrom-kz.com',
-            'full_name' => 'Администратор системы',
-            'phone' => '+7 777 123 4567'
-        ],
-        'notifications' => [
-            'email_notifications' => true,
-            'telegram_notifications' => true,
-            'sms_notifications' => false,
-            'push_notifications' => true
-        ],
-        'system' => [
-            'company_name' => 'Хром-KZ',
-            'support_email' => 'support@hrom-kz.com',
-            'timezone' => 'Asia/Almaty',
-            'default_currency' => 'KZT',
-            'auto_delete_days' => 365,
-            'telegram_token' => '',
-            'telegram_chat_id' => ''
-        ],
-        'security' => [
-            'session_timeout' => 60,
-            'two_factor_auth' => false,
-            'login_logging' => true,
-            'failed_attempts_limit' => 5
-        ]
-    ];
-}
+// Initialize models
+$settingModel = new Setting();
+$userModel = new User();
+$currentUserId = $_SESSION['user_id'] ?? 1;
 
-// Handle settings updates
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $message = '';
-    $messageType = 'success';
-    
-    if (isset($_POST['update_profile'])) {
-        $_SESSION['app_settings']['profile'] = [
-            'username' => $_POST['username'] ?? $_SESSION['app_settings']['profile']['username'],
-            'email' => $_POST['email'] ?? $_SESSION['app_settings']['profile']['email'],
-            'full_name' => $_POST['full_name'] ?? $_SESSION['app_settings']['profile']['full_name'],
-            'phone' => $_POST['phone'] ?? $_SESSION['app_settings']['profile']['phone']
-        ];
-        $message = 'Профиль успешно обновлен';
-    } elseif (isset($_POST['update_notifications'])) {
-        $_SESSION['app_settings']['notifications'] = [
-            'email_notifications' => isset($_POST['email_notifications']),
-            'telegram_notifications' => isset($_POST['telegram_notifications']),
-            'sms_notifications' => isset($_POST['sms_notifications']),
-            'push_notifications' => isset($_POST['push_notifications'])
-        ];
-        $message = 'Настройки уведомлений сохранены';
-    } elseif (isset($_POST['update_system'])) {
-        $_SESSION['app_settings']['system'] = array_merge($_SESSION['app_settings']['system'], [
-            'company_name' => $_POST['company_name'] ?? $_SESSION['app_settings']['system']['company_name'],
-            'support_email' => $_POST['support_email'] ?? $_SESSION['app_settings']['system']['support_email'],
-            'timezone' => $_POST['timezone'] ?? $_SESSION['app_settings']['system']['timezone'],
-            'default_currency' => $_POST['default_currency'] ?? $_SESSION['app_settings']['system']['default_currency'],
-            'auto_delete_days' => (int)($_POST['auto_delete_days'] ?? $_SESSION['app_settings']['system']['auto_delete_days']),
-            'telegram_token' => $_POST['telegram_token'] ?? $_SESSION['app_settings']['system']['telegram_token'],
-            'telegram_chat_id' => $_POST['telegram_chat_id'] ?? $_SESSION['app_settings']['system']['telegram_chat_id']
-        ]);
-        $message = 'Системные настройки обновлены';
-    } elseif (isset($_POST['test_telegram'])) {
-        // Handle Telegram test
-        $token = $_POST['telegram_token'] ?? $_SESSION['app_settings']['system']['telegram_token'];
-        $chat_id = $_POST['telegram_chat_id'] ?? $_SESSION['app_settings']['system']['telegram_chat_id'];
-        
-        if (empty($token) || empty($chat_id)) {
-            $message = 'Укажите токен бота и Chat ID для тестирования';
-            $messageType = 'error';
-        } else {
-            // Test Telegram connection
-            $test_message = "🧪 Тестовое сообщение из CRM системы Хром-KZ\n\nВремя: " . date('d.m.Y H:i:s');
-            $telegram_url = "https://api.telegram.org/bot{$token}/sendMessage";
-            
-            $data = [
-                'chat_id' => $chat_id,
-                'text' => $test_message,
-                'parse_mode' => 'HTML'
-            ];
-            
-            $context = stream_context_create([
-                'http' => [
-                    'method' => 'POST',
-                    'header' => 'Content-Type: application/x-www-form-urlencoded',
-                    'content' => http_build_query($data)
-                ]
-            ]);
-            
-            $result = @file_get_contents($telegram_url, false, $context);
-            $response = json_decode($result, true);
-            
-            if ($response && $response['ok']) {
-                $message = 'Telegram соединение работает! Сообщение отправлено успешно.';
-                $messageType = 'success';
-            } else {
-                $message = 'Ошибка Telegram: ' . ($response['description'] ?? 'Неизвестная ошибка');
-                $messageType = 'error';
-            }
+// Handle form submissions
+$message = '';
+$messageType = 'success';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    try {
+        switch ($_POST['action']) {
+            case 'update_profile':
+                $settingModel->updateBatch([
+                    'admin_name' => ['value' => $_POST['admin_name'], 'category' => 'profile'],
+                    'admin_email' => ['value' => $_POST['admin_email'], 'category' => 'profile'],
+                    'admin_phone' => ['value' => $_POST['admin_phone'], 'category' => 'profile']
+                ], $currentUserId);
+                $message = 'Профиль успешно обновлен';
+                break;
+                
+            case 'change_password':
+                if ($_POST['new_password'] !== $_POST['confirm_password']) {
+                    throw new Exception('Пароли не совпадают');
+                }
+                if (strlen($_POST['new_password']) < 6) {
+                    throw new Exception('Пароль должен содержать минимум 6 символов');
+                }
+                // Update password in users table
+                $userModel->updatePassword($currentUserId, $_POST['new_password']);
+                $message = 'Пароль успешно изменен';
+                break;
+                
+            case 'update_notifications':
+                $settingModel->updateBatch([
+                    'email_notifications' => ['value' => isset($_POST['email_notifications']), 'type' => 'boolean', 'category' => 'notifications'],
+                    'telegram_notifications' => ['value' => isset($_POST['telegram_notifications']), 'type' => 'boolean', 'category' => 'notifications'],
+                    'sms_notifications' => ['value' => isset($_POST['sms_notifications']), 'type' => 'boolean', 'category' => 'notifications'],
+                    'telegram_bot_token' => ['value' => $_POST['telegram_bot_token'], 'category' => 'notifications'],
+                    'telegram_chat_id' => ['value' => $_POST['telegram_chat_id'], 'category' => 'notifications']
+                ], $currentUserId);
+                $message = 'Настройки уведомлений обновлены';
+                break;
+                
+            case 'update_system':
+                $settingModel->updateBatch([
+                    'company_name' => ['value' => $_POST['company_name'], 'category' => 'system'],
+                    'company_address' => ['value' => $_POST['company_address'], 'category' => 'system'],
+                    'company_phone' => ['value' => $_POST['company_phone'], 'category' => 'system'],
+                    'timezone' => ['value' => $_POST['timezone'], 'category' => 'system'],
+                    'currency' => ['value' => $_POST['currency'], 'category' => 'system'],
+                    'working_hours' => ['value' => $_POST['working_hours'], 'category' => 'system']
+                ], $currentUserId);
+                $message = 'Системные настройки обновлены';
+                break;
+                
+            case 'update_security':
+                $settingModel->updateBatch([
+                    'session_timeout' => ['value' => $_POST['session_timeout'], 'type' => 'integer', 'category' => 'security'],
+                    'max_login_attempts' => ['value' => $_POST['max_login_attempts'], 'type' => 'integer', 'category' => 'security'],
+                    'password_min_length' => ['value' => $_POST['password_min_length'], 'type' => 'integer', 'category' => 'security'],
+                    'two_factor_auth' => ['value' => isset($_POST['two_factor_auth']), 'type' => 'boolean', 'category' => 'security']
+                ], $currentUserId);
+                $message = 'Настройки безопасности обновлены';
+                break;
+                
+            case 'update_pricing':
+                $settingModel->updateBatch([
+                    'base_delivery_price' => ['value' => $_POST['base_delivery_price'], 'type' => 'integer', 'category' => 'pricing'],
+                    'price_per_kg' => ['value' => $_POST['price_per_kg'], 'type' => 'integer', 'category' => 'pricing'],
+                    'urgent_delivery_multiplier' => ['value' => $_POST['urgent_delivery_multiplier'], 'category' => 'pricing']
+                ], $currentUserId);
+                $message = 'Настройки тарифов обновлены';
+                break;
+                
+            case 'test_telegram':
+                $result = $settingModel->testTelegramConnection();
+                $message = $result['message'];
+                $messageType = $result['success'] ? 'success' : 'error';
+                header('Content-Type: application/json');
+                echo json_encode($result);
+                exit;
+                break;
         }
-        
-        header('Content-Type: application/json');
-        echo json_encode(['success' => $messageType === 'success', 'message' => $message]);
-        exit;
+    } catch (Exception $e) {
+        $message = 'Ошибка: ' . $e->getMessage();
+        $messageType = 'error';
     }
 }
 
-// Get current user info
+// Get current settings
+$settings = $settingModel->getFormSettings();
+
+// Get current user info  
 $currentUser = $_SESSION['admin_user'] ?? 'admin';
 ?>
 <!DOCTYPE html>

@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use App\Models\ShipmentOrder;
+use App\Models\Notification;
 use App\EmailService;
 use App\TelegramService;
 
@@ -106,6 +107,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($result) {
             $success = true;
             $createdOrderId = $result['id'];
+            
+            // Создаем уведомление о новом заказе
+            try {
+                $notification = new Notification();
+                $notification->createNewOrderNotification(
+                    $result['id'],
+                    'региональный',
+                    $data['contact_name']
+                );
+            } catch (Exception $e) {
+                // Не критичная ошибка, продолжаем
+            }
             
             // Отправляем email уведомление
             try {
