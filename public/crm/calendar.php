@@ -56,7 +56,7 @@ foreach ($week_orders as $order) {
 <body class="bg-gray-50" x-data="{ sidebarOpen: true }">
     <div class="flex h-screen bg-gray-50">
         <!-- Left Sidebar Navigation -->
-        <div class="bg-white shadow-xl border-r border-gray-200 transition-all duration-300 ease-in-out" 
+        <div class="bg-white shadow-xl border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col overflow-hidden" 
              :class="sidebarOpen ? 'w-72' : 'w-16'">
             <!-- Logo/Brand -->
             <div class="h-16 flex items-center px-6 border-b border-gray-200">
@@ -75,7 +75,7 @@ foreach ($week_orders as $order) {
             </div>
             
             <!-- Navigation -->
-            <nav class="px-4 py-6 space-y-1">
+            <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto overflow-x-hidden">
                 <a href="/crm" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-lg transition-all duration-200 group">
                     <i class="fas fa-tachometer-alt mr-3 w-5 text-gray-500 group-hover:text-blue-600"></i>
                     <span>Дашборд</span>
@@ -108,9 +108,9 @@ foreach ($week_orders as $order) {
             </nav>
             
             <!-- User Profile -->
-            <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center">
+            <div class="mt-auto p-4 border-t border-gray-200 bg-white flex-shrink-0">
+                <div class="flex items-center space-x-3 overflow-hidden">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center flex-shrink-0">
                         <i class="fas fa-user text-white text-sm"></i>
                     </div>
                     <div class="flex-1">

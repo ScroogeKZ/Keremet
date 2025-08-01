@@ -137,7 +137,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 <body class="bg-gray-50">
     <div class="flex h-screen bg-gray-50" x-data="{ sidebarOpen: true }">
         <!-- Left Sidebar Navigation -->
-        <div class="bg-white shadow-xl border-r border-gray-200 transition-all duration-300 ease-in-out w-72 flex flex-col">
+        <div class="bg-white shadow-xl border-r border-gray-200 transition-all duration-300 ease-in-out w-72 flex flex-col overflow-hidden">
             <!-- Logo/Brand -->
             <div class="h-16 flex items-center px-6 border-b border-gray-200">
                 <div class="flex items-center">
@@ -152,7 +152,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             </div>
             
             <!-- Navigation -->
-            <nav class="px-4 py-6 space-y-1 flex-1">
+            <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto overflow-x-hidden">
                 <a href="/crm" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-lg transition-all duration-200 group">
                     <i class="fas fa-tachometer-alt mr-3 w-5 text-gray-500 group-hover:text-blue-600"></i>
                     <span>Дашборд</span>

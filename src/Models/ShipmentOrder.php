@@ -265,6 +265,44 @@ class ShipmentOrder {
         }
     }
     
+    public function getByDateRange($start_date, $end_date) {
+        $sql = "SELECT * FROM shipment_orders 
+                WHERE DATE(created_at) BETWEEN :start_date AND :end_date 
+                ORDER BY created_at ASC";
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([
+                ':start_date' => $start_date,
+                ':end_date' => $end_date
+            ]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error fetching orders by date range: " . $e->getMessage());
+            throw new Exception("Failed to fetch orders by date range");
+        }
+    }
+    
+    public function updateSchedule($order_id, $new_date, $new_time = null) {
+        $sql = "UPDATE shipment_orders SET ";
+        $params = [':id' => $order_id];
+        
+        if ($new_time) {
+            $sql .= "ready_time = :ready_time, ";
+            $params[':ready_time'] = $new_time;
+        }
+        
+        $sql .= "updated_at = CURRENT_TIMESTAMP WHERE id = :id";
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute($params);
+        } catch (PDOException $e) {
+            error_log("Error updating order schedule: " . $e->getMessage());
+            return false;
+        }
+    }
+    
     public function getByClientPhone($phone) {
         $sql = "SELECT * FROM shipment_orders WHERE contact_phone = :phone ORDER BY created_at DESC";
         

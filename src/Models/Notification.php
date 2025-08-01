@@ -46,11 +46,36 @@ class Notification
         $stmt->execute([$userId, $limit]);
         return $stmt->fetchAll();
     }
+    
+    public function getAll($filters = []) {
+        $sql = "SELECT * FROM notifications WHERE 1=1";
+        $params = [];
+        
+        if (isset($filters['unread_only']) && $filters['unread_only']) {
+            $sql .= " AND is_read = FALSE";
+        }
+        
+        $sql .= " ORDER BY created_at DESC";
+        
+        if (isset($filters['limit'])) {
+            $sql .= " LIMIT ?";
+            $params[] = $filters['limit'];
+        }
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            return $stmt->fetchAll();
+        } catch (\PDOException $e) {
+            error_log("Error getting notifications: " . $e->getMessage());
+            return [];
+        }
+    }
 
     /**
-     * Mark notification as read
+     * Mark notification as read original method
      */
-    public function markAsRead($id, $userId = null)
+    public function markAsReadOriginal($id, $userId = null)
     {
         $sql = "UPDATE notifications SET is_read = TRUE 
                 WHERE id = ? AND (user_id IS NULL OR user_id = ?)";
@@ -62,7 +87,7 @@ class Notification
     /**
      * Mark all notifications as read for user
      */
-    public function markAllAsRead($userId = null)
+    public function markAllAsReadOriginal($userId = null)
     {
         $sql = "UPDATE notifications SET is_read = TRUE 
                 WHERE user_id IS NULL OR user_id = ?";
@@ -168,6 +193,49 @@ class Notification
             return $diff->i . ' мин. назад';
         } else {
             return 'только что';
+        }
+    }
+    
+    public function getUnreadCount($user_id = null) {
+        $sql = "SELECT COUNT(*) FROM notifications WHERE is_read = FALSE";
+        $params = [];
+        
+        if ($user_id) {
+            $sql .= " AND user_id = ?";
+            $params[] = $user_id;
+        }
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            return $stmt->fetchColumn();
+        } catch (\PDOException $e) {
+            error_log("Error getting unread count: " . $e->getMessage());
+            return 0;
+        }
+    }
+    
+    public function markAllAsRead($user_id) {
+        $sql = "UPDATE notifications SET is_read = TRUE WHERE user_id = ?";
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([$user_id]);
+        } catch (\PDOException $e) {
+            error_log("Error marking all as read: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    public function markAsRead($id, $read = true) {
+        $sql = "UPDATE notifications SET is_read = ? WHERE id = ?";
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([$read, $id]);
+        } catch (\PDOException $e) {
+            error_log("Error marking as read: " . $e->getMessage());
+            return false;
         }
     }
 }

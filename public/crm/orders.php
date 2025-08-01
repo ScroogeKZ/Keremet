@@ -46,26 +46,26 @@ $orders = $orderModel->getAll($filters);
 <body class="bg-gray-50 min-h-screen">
     <div class="flex h-screen bg-gray-50" x-data="{ sidebarOpen: true }">
         <!-- Left Sidebar Navigation -->
-        <div class="bg-white shadow-xl border-r border-gray-200 transition-all duration-300 ease-in-out" 
+        <div class="bg-white shadow-xl border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col overflow-hidden" 
              :class="sidebarOpen ? 'w-72' : 'w-16'">
             <!-- Logo/Brand -->
-            <div class="h-16 flex items-center px-6 border-b border-gray-200">
-                <div class="flex items-center">
-                    <div class="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center mr-3">
+            <div class="h-16 flex items-center px-6 border-b border-gray-200 flex-shrink-0">
+                <div class="flex items-center overflow-hidden">
+                    <div class="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
                         <i class="fas fa-shipping-fast text-white text-sm"></i>
                     </div>
-                    <h1 class="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent transition-opacity duration-300"
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent transition-opacity duration-300 whitespace-nowrap overflow-hidden"
                         :class="sidebarOpen ? 'opacity-100' : 'opacity-0'"
                         x-show="sidebarOpen">Хром-KZ CRM</h1>
                 </div>
                 <button @click="sidebarOpen = !sidebarOpen" 
-                        class="ml-auto p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200">
+                        class="ml-auto p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex-shrink-0">
                     <i class="fas fa-bars text-gray-600" :class="sidebarOpen ? 'fa-times' : 'fa-bars'"></i>
                 </button>
             </div>
             
             <!-- Navigation -->
-            <nav class="px-4 py-6 space-y-1">
+            <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto overflow-x-hidden">
                 <a href="/crm" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-lg transition-all duration-200 group"
                    :title="!sidebarOpen ? 'Дашборд' : ''">
                     <i class="fas fa-tachometer-alt w-5 text-gray-500 group-hover:text-blue-600" :class="sidebarOpen ? 'mr-3' : 'mx-auto'"></i>
@@ -128,7 +128,7 @@ $orders = $orderModel->getAll($filters);
             </nav>
             
             <!-- User Profile -->
-            <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+            <div class="mt-auto p-4 border-t border-gray-200 bg-white">
                 <div class="flex items-center" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                     <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center">
                         <i class="fas fa-user text-white text-sm"></i>

@@ -122,7 +122,7 @@ $currentUser = $_SESSION['admin_user'] ?? 'admin';
 <body class="bg-gray-50" x-data="{ sidebarOpen: true, activeTab: 'profile' }">
     <div class="flex h-screen">
         <!-- Sidebar -->
-        <div class="bg-white shadow-lg transition-all duration-300 flex flex-col" 
+        <div class="bg-white shadow-lg transition-all duration-300 flex flex-col overflow-hidden" 
              :class="sidebarOpen ? 'w-64' : 'w-16'">
             <!-- Logo -->
             <div class="flex items-center px-4 py-6 border-b border-gray-200">
@@ -141,7 +141,7 @@ $currentUser = $_SESSION['admin_user'] ?? 'admin';
             </div>
             
             <!-- Navigation -->
-            <nav class="px-4 py-6 space-y-1">
+            <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto overflow-x-hidden">
                 <a href="/crm" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-lg transition-all duration-200 group"
                    :title="!sidebarOpen ? 'Дашборд' : ''">
                     <i class="fas fa-tachometer-alt w-5 text-gray-500 group-hover:text-blue-600" :class="sidebarOpen ? 'mr-3' : 'mx-auto'"></i>
@@ -571,7 +571,7 @@ $currentUser = $_SESSION['admin_user'] ?? 'admin';
                         <div x-show="activeTab === 'pricing'" x-transition>
                             <form method="POST" class="space-y-6">
                                 <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                                    <h3 class="text-sm font-medium text-green-800">💰 Тарифы доставки</h3>
+                                    <h3 class="text-sm font-medium text-green-800">Тарифы доставки</h3>
                                     <p class="text-sm text-green-700 mt-1">Настройка цен на доставку по городам и типам груза</p>
                                 </div>
 
@@ -611,7 +611,7 @@ $currentUser = $_SESSION['admin_user'] ?? 'admin';
                         <div x-show="activeTab === 'templates'" x-transition>
                             <div class="space-y-6">
                                 <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                                    <h3 class="text-sm font-medium text-purple-800">📧 Шаблоны уведомлений</h3>
+                                    <h3 class="text-sm font-medium text-purple-800">Шаблоны уведомлений</h3>
                                     <p class="text-sm text-purple-700 mt-1">Настройка текстов email и SMS уведомлений</p>
                                 </div>
 

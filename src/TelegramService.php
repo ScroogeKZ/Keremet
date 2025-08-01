@@ -26,7 +26,7 @@ class TelegramService {
         try {
             $orderTypeText = $order['order_type'] === 'astana' ? 'Астана' : 'Регионы';
             
-            $message = "🚚 *Новый заказ #{$order['id']}*\n\n" .
+            $message = "*Новый заказ #{$order['id']}*\n\n" .
                 "*Тип:* {$orderTypeText}\n" .
                 "*Клиент:* {$order['contact_name']}\n" .
                 "*Телефон:* {$order['contact_phone']}\n" .

@@ -274,7 +274,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="space-y-2">
                         <label class="block text-sm font-semibold text-gray-800 mb-3">
                             <span class="flex items-center">
-                                📍 Адрес забора груза *
+                                Адрес забора груза *
                             </span>
                         </label>
                         <input type="text" name="pickup_address" required 
@@ -298,7 +298,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="space-y-2">
                         <label class="block text-sm font-semibold text-gray-800 mb-3">
                             <span class="flex items-center">
-                                ⏰ Время готовности груза *
+                                Время готовности груза *
                             </span>
                         </label>
                         <input type="time" name="ready_time" required
@@ -308,7 +308,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="space-y-2">
                         <label class="block text-sm font-semibold text-gray-800 mb-3">
                             <span class="flex items-center">
-                                📦 Тип груза *
+                                Тип груза *
                             </span>
                         </label>
                         <select name="cargo_type" required 
@@ -380,7 +380,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="space-y-2">
                         <label class="block text-sm font-semibold text-gray-800 mb-3">
                             <span class="flex items-center">
-                                👥 Контактное лицо получателя *
+                                Контактное лицо получателя *
                             </span>
                         </label>
                         <input type="text" name="recipient_contact" required placeholder="ФИО получателя"
@@ -390,7 +390,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="space-y-2">
                         <label class="block text-sm font-semibold text-gray-800 mb-3">
                             <span class="flex items-center">
-                                📞 Телефон получателя *
+                                Телефон получателя *
                             </span>
                         </label>
                         <input type="tel" name="recipient_phone" required placeholder="+77xxxxxxxxx или 87xxxxxxxxx"
@@ -402,7 +402,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="space-y-2">
                     <label class="block text-sm font-semibold text-gray-800 mb-3">
                         <span class="flex items-center">
-                            💬 Комментарий
+                            Комментарий
                         </span>
                     </label>
                     <textarea name="comment" rows="4" placeholder="Дополнительная информация о доставке..."
@@ -412,7 +412,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="space-y-2">
                     <label class="block text-sm font-semibold text-gray-800 mb-3">
                         <span class="flex items-center">
-                            📷 Фотография груза
+                            Фотография груза
                         </span>
                     </label>
                     <input type="file" name="photo" accept="image/*" 
@@ -420,10 +420,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <p class="text-sm text-gray-500 mt-2">Поддерживаемые форматы: JPG, PNG, GIF. Максимальный размер: 5MB</p>
                 </div>
                 
+                <!-- Cost Calculator -->
+                <div class="bg-gray-50 p-6 rounded-xl mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Калькулятор стоимости</h3>
+                    <div id="calculator-result" class="text-center text-gray-600">
+                        Выберите тип груза и укажите вес для расчета стоимости
+                    </div>
+                    <button type="button" onclick="calculateCost()" 
+                            class="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                        Рассчитать стоимость
+                    </button>
+                </div>
+
                 <div class="pt-6">
                     <button type="submit" class="w-full bg-gradient-to-r from-primary to-primary-dark text-white py-4 px-8 rounded-xl hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-bold text-xl">
                         <span class="flex items-center justify-center">
-                            📋 Создать заказ
+                            Создать заказ
                         </span>
                     </button>
                     <p class="text-center text-gray-500 text-sm mt-4">
@@ -450,6 +462,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 mobileMenu.classList.add('hidden');
             }
         });
+
+        // Cost calculator
+        function calculateCost() {
+            const cargoType = document.querySelector('select[name="cargo_type"]').value;
+            const weight = document.querySelector('input[name="weight"]').value;
+            
+            if (!cargoType || !weight) {
+                document.getElementById('calculator-result').innerHTML = 
+                    '<div class="text-red-600">Выберите тип груза и укажите вес</div>';
+                return;
+            }
+            
+            fetch('/api/calculator.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    cargo_type: cargoType,
+                    weight: parseFloat(weight),
+                    zone: 'astana'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    let breakdown = '';
+                    for (const [key, value] of Object.entries(data.breakdown)) {
+                        breakdown += `<div class="flex justify-between"><span>${key}:</span><span>${value}</span></div>`;
+                    }
+                    document.getElementById('calculator-result').innerHTML = 
+                        `<div class="bg-white p-4 rounded-lg">
+                            <div class="text-lg font-bold text-green-600 mb-2">
+                                Примерная стоимость: ${data.calculation.total.toLocaleString()} ₸
+                            </div>
+                            <div class="text-sm text-gray-600 space-y-1">${breakdown}</div>
+                        </div>`;
+                } else {
+                    document.getElementById('calculator-result').innerHTML = 
+                        '<div class="text-red-600">Ошибка расчета стоимости</div>';
+                }
+            })
+            .catch(error => {
+                document.getElementById('calculator-result').innerHTML = 
+                    '<div class="text-red-600">Ошибка соединения</div>';
+            });
+        }
     </script>
 </body>
 </html>
