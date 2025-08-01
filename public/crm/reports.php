@@ -36,6 +36,68 @@ $total_cost = array_sum(array_column($filtered_orders, 'shipping_cost'));
 $astana_orders = count(array_filter($filtered_orders, fn($o) => $o['order_type'] === 'astana'));
 $regional_orders = count(array_filter($filtered_orders, fn($o) => $o['order_type'] === 'regional'));
 
+// Calculate previous period for comparison
+$prev_start = date('Y-m-d', strtotime($start_date . ' -1 month'));
+$prev_end = date('Y-m-d', strtotime($end_date . ' -1 month'));
+
+$prev_orders = $orders->getFiltered([
+    'date_from' => $prev_start,
+    'date_to' => $prev_end
+]);
+
+$prev_total_orders = count($prev_orders);
+$prev_total_cost = array_sum(array_column($prev_orders, 'shipping_cost'));
+$prev_avg_cost = $prev_total_orders > 0 ? $prev_total_cost / $prev_total_orders : 0;
+
+// Calculate trends
+$order_trend = $prev_total_orders > 0 ? round((($total_orders - $prev_total_orders) / $prev_total_orders) * 100, 1) : 0;
+$cost_trend = $prev_total_cost > 0 ? round((($total_cost - $prev_total_cost) / $prev_total_cost) * 100, 1) : 0;
+$avg_cost = $total_orders > 0 ? $total_cost / $total_orders : 0;
+$avg_trend = $prev_avg_cost > 0 ? round((($avg_cost - $prev_avg_cost) / $prev_avg_cost) * 100, 1) : 0;
+
+// Group by cargo types with costs
+$cargo_stats = [];
+foreach ($filtered_orders as $order) {
+    $cargo = $order['cargo_type'] ?: 'Не указано';
+    if (!isset($cargo_stats[$cargo])) {
+        $cargo_stats[$cargo] = ['count' => 0, 'total_cost' => 0];
+    }
+    $cargo_stats[$cargo]['count']++;
+    $cargo_stats[$cargo]['total_cost'] += floatval($order['shipping_cost']);
+}
+
+// Sort by total cost descending
+arsort($cargo_stats);
+
+// Group by destinations (cities) with costs
+$destination_stats = [];
+foreach ($filtered_orders as $order) {
+    // Extract city from delivery address or use pickup address
+    $address = $order['delivery_address'] ?: $order['pickup_address'];
+    $city = 'Не указано';
+    
+    // Simple city extraction logic
+    if (stripos($address, 'Алматы') !== false) $city = 'Алматы';
+    elseif (stripos($address, 'Астана') !== false || stripos($address, 'Нур-Султан') !== false) $city = 'Астана';
+    elseif (stripos($address, 'Шымкент') !== false) $city = 'Шымкент';
+    elseif (stripos($address, 'Караганда') !== false) $city = 'Караганда';
+    elseif (stripos($address, 'Актобе') !== false) $city = 'Актобе';
+    elseif (preg_match('/([А-Яа-я]+)/u', $address, $matches)) {
+        $city = $matches[1];
+    }
+    
+    if (!isset($destination_stats[$city])) {
+        $destination_stats[$city] = ['count' => 0, 'total_cost' => 0];
+    }
+    $destination_stats[$city]['count']++;
+    $destination_stats[$city]['total_cost'] += floatval($order['shipping_cost']);
+}
+
+// Sort destinations by total cost descending
+uasort($destination_stats, function($a, $b) {
+    return $b['total_cost'] <=> $a['total_cost'];
+});
+
 // Export functionality
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     header('Content-Type: text/csv; charset=utf-8');
@@ -70,30 +132,27 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body class="bg-gray-50">
     <div class="flex h-screen bg-gray-50" x-data="{ sidebarOpen: true }">
         <!-- Left Sidebar Navigation -->
-        <div class="bg-white shadow-xl border-r border-gray-200 transition-all duration-300 ease-in-out" 
-             :class="sidebarOpen ? 'w-72' : 'w-16'">
+        <div class="bg-white shadow-xl border-r border-gray-200 transition-all duration-300 ease-in-out w-72 flex flex-col">
             <!-- Logo/Brand -->
             <div class="h-16 flex items-center px-6 border-b border-gray-200">
                 <div class="flex items-center">
                     <div class="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center mr-3">
                         <i class="fas fa-shipping-fast text-white text-sm"></i>
                     </div>
-                    <h1 class="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent transition-opacity duration-300"
-                        :class="sidebarOpen ? 'opacity-100' : 'opacity-0'"
-                        x-show="sidebarOpen">Хром-KZ CRM</h1>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">Хром-KZ CRM</h1>
                 </div>
-                <button @click="sidebarOpen = !sidebarOpen" 
-                        class="ml-auto p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200">
-                    <i class="fas fa-bars text-gray-600" :class="sidebarOpen ? 'fa-times' : 'fa-bars'"></i>
+                <button class="ml-auto p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200">
+                    <i class="fas fa-bars text-gray-600"></i>
                 </button>
             </div>
             
             <!-- Navigation -->
-            <nav class="px-4 py-6 space-y-1">
+            <nav class="px-4 py-6 space-y-1 flex-1">
                 <a href="/crm" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-lg transition-all duration-200 group">
                     <i class="fas fa-tachometer-alt mr-3 w-5 text-gray-500 group-hover:text-blue-600"></i>
                     <span>Дашборд</span>
@@ -126,7 +185,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             </nav>
             
             <!-- User Profile -->
-            <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+            <div class="mt-auto p-4 border-t border-gray-200">
                 <div class="flex items-center space-x-3">
                     <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center">
                         <i class="fas fa-user text-white text-sm"></i>
@@ -135,17 +194,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                         <p class="text-sm font-medium text-gray-900">Admin</p>
                         <p class="text-xs text-gray-500">Администратор</p>
                     </div>
-                    <div class="relative" x-data="{ open: false }">
-                        <button @click="open = !open" class="text-gray-400 hover:text-gray-600">
-                            <i class="fas fa-ellipsis-v"></i>
-                        </button>
-                        <div x-show="open" @click.away="open = false" class="origin-bottom-left absolute bottom-full left-0 mb-2 w-48 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-                            <div class="py-1">
-                                <a href="/crm/settings.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Настройки</a>
-                                <a href="/crm/logout.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Выход</a>
-                            </div>
-                        </div>
-                    </div>
+                    <a href="/crm/logout.php" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </a>
                 </div>
             </div>
         </div>
@@ -155,8 +206,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             <!-- Top Header -->
             <header class="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center justify-between px-8">
                 <div>
-                    <h2 class="text-2xl font-bold text-gray-900">Отчеты и экспорт</h2>
-                    <p class="text-sm text-gray-600">Создание отчетов и анализ данных</p>
+                    <h2 class="text-2xl font-bold text-gray-900">Отчеты по расходам на логистику</h2>
+                    <p class="text-sm text-gray-600">Анализ затрат отдела логистики с трендами</p>
                 </div>
                 <div class="flex items-center space-x-4">
                     <a href="/" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center">
@@ -173,13 +224,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 
             <!-- Content Area -->
             <div class="flex-1 overflow-auto bg-gray-50 p-8">
-        <div class="px-4 py-6 sm:px-0">
-            <div class="border-4 border-dashed border-gray-200 rounded-lg p-6">
                 
                 <!-- Header -->
                 <div class="mb-6">
-                    <h1 class="text-3xl font-bold text-gray-900">Отчеты</h1>
-                    <p class="mt-2 text-gray-600">Детальная отчетность по заказам и операциям</p>
+                    <h1 class="text-3xl font-bold text-gray-900">Отчеты по расходам на логистику</h1>
+                    <p class="mt-2 text-gray-600">Анализ затрат отдела логистики с трендами и сравнениями</p>
                 </div>
 
                 <!-- Date Filter -->
@@ -205,16 +254,67 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                     </form>
                 </div>
 
-                <!-- Summary Cards -->
+                <!-- Summary Cards with Trends -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                     <div class="bg-white p-6 rounded-lg shadow">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0">
-                                <i class="fas fa-box text-blue-600 text-2xl"></i>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-box text-blue-600 text-2xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-500">Всего заказов</p>
+                                    <p class="text-2xl font-semibold text-gray-900"><?= $total_orders ?></p>
+                                </div>
                             </div>
-                            <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-500">Всего заказов</p>
-                                <p class="text-2xl font-semibold text-gray-900"><?= $total_orders ?></p>
+                            <div class="text-right">
+                                <span class="text-xs <?= $order_trend >= 0 ? 'text-green-600' : 'text-red-600' ?>">
+                                    <i class="fas fa-<?= $order_trend >= 0 ? 'arrow-up' : 'arrow-down' ?>"></i>
+                                    <?= abs($order_trend) ?>%
+                                </span>
+                                <p class="text-xs text-gray-500">vs пред. период</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-tenge text-purple-600 text-2xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-500">Общие расходы</p>
+                                    <p class="text-2xl font-semibold text-gray-900"><?= number_format($total_cost, 0, ',', ' ') ?> ₸</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs <?= $cost_trend >= 0 ? 'text-red-600' : 'text-green-600' ?>">
+                                    <i class="fas fa-<?= $cost_trend >= 0 ? 'arrow-up' : 'arrow-down' ?>"></i>
+                                    <?= abs($cost_trend) ?>%
+                                </span>
+                                <p class="text-xs text-gray-500">vs пред. период</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-calculator text-green-600 text-2xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-500">Средний расход</p>
+                                    <p class="text-2xl font-semibold text-gray-900"><?= number_format($avg_cost, 0, ',', ' ') ?> ₸</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs <?= $avg_trend >= 0 ? 'text-red-600' : 'text-green-600' ?>">
+                                    <i class="fas fa-<?= $avg_trend >= 0 ? 'arrow-up' : 'arrow-down' ?>"></i>
+                                    <?= abs($avg_trend) ?>%
+                                </span>
+                                <p class="text-xs text-gray-500">vs пред. период</p>
                             </div>
                         </div>
                     </div>
@@ -222,36 +322,70 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                     <div class="bg-white p-6 rounded-lg shadow">
                         <div class="flex items-center">
                             <div class="flex-shrink-0">
-                                <i class="fas fa-check-circle text-green-600 text-2xl"></i>
+                                <i class="fas fa-percentage text-yellow-600 text-2xl"></i>
                             </div>
                             <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-500">Завершено</p>
-                                <p class="text-2xl font-semibold text-gray-900"><?= $completed_orders ?></p>
+                                <p class="text-sm font-medium text-gray-500">Эффективность</p>
+                                <p class="text-2xl font-semibold text-gray-900">
+                                    <?= $total_orders > 0 ? round(($completed_orders / $total_orders) * 100, 1) : 0 ?>%
+                                </p>
+                                <p class="text-xs text-gray-500">завершенных заказов</p>
                             </div>
                         </div>
                     </div>
+                </div>
 
+                <!-- Analysis Sections -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Cargo Types Analysis -->
                     <div class="bg-white p-6 rounded-lg shadow">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0">
-                                <i class="fas fa-clock text-yellow-600 text-2xl"></i>
+                        <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                            <i class="fas fa-boxes text-blue-600 mr-2"></i>
+                            Расходы по типам грузов
+                        </h3>
+                        <div class="space-y-3">
+                            <?php foreach (array_slice($cargo_stats, 0, 6, true) as $cargo => $stats): ?>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div class="flex-1">
+                                    <div class="text-sm font-medium text-gray-900"><?= htmlspecialchars($cargo) ?></div>
+                                    <div class="text-xs text-gray-500"><?= $stats['count'] ?> заказов</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm font-semibold text-gray-900">
+                                        <?= number_format($stats['total_cost'], 0, ',', ' ') ?> ₸
+                                    </div>
+                                    <div class="text-xs text-gray-500">
+                                        ~<?= number_format($stats['total_cost'] / $stats['count'], 0, ',', ' ') ?> ₸/заказ
+                                    </div>
+                                </div>
                             </div>
-                            <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-500">В работе</p>
-                                <p class="text-2xl font-semibold text-gray-900"><?= $in_progress_orders ?></p>
-                            </div>
+                            <?php endforeach; ?>
                         </div>
                     </div>
 
+                    <!-- Most Expensive Destinations -->
                     <div class="bg-white p-6 rounded-lg shadow">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0">
-                                <i class="fas fa-ruble-sign text-purple-600 text-2xl"></i>
+                        <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                            <i class="fas fa-map-marker-alt text-red-600 mr-2"></i>
+                            Самые дорогие направления
+                        </h3>
+                        <div class="space-y-3">
+                            <?php foreach (array_slice($destination_stats, 0, 6, true) as $city => $stats): ?>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div class="flex-1">
+                                    <div class="text-sm font-medium text-gray-900"><?= htmlspecialchars($city) ?></div>
+                                    <div class="text-xs text-gray-500"><?= $stats['count'] ?> заказов</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm font-semibold text-gray-900">
+                                        <?= number_format($stats['total_cost'], 0, ',', ' ') ?> ₸
+                                    </div>
+                                    <div class="text-xs text-gray-500">
+                                        ~<?= number_format($stats['total_cost'] / $stats['count'], 0, ',', ' ') ?> ₸/заказ
+                                    </div>
+                                </div>
                             </div>
-                            <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-500">Общая стоимость</p>
-                                <p class="text-2xl font-semibold text-gray-900"><?= number_format($total_cost, 0, ',', ' ') ?> ₸</p>
-                            </div>
+                            <?php endforeach; ?>
                         </div>
                     </div>
                 </div>
@@ -266,6 +400,37 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                     <div class="bg-white p-6 rounded-lg shadow">
                         <h3 class="text-lg font-medium text-gray-900 mb-4">Типы заказов</h3>
                         <canvas id="typeChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+
+                <!-- Comparison with Previous Period -->
+                <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-6 rounded-lg shadow text-white mb-6">
+                    <h3 class="text-lg font-medium mb-4 flex items-center">
+                        <i class="fas fa-chart-line text-white mr-2"></i>
+                        Сравнение с предыдущим периодом
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold"><?= $prev_total_orders ?></div>
+                            <div class="text-sm opacity-90">Заказов в пред. периоде</div>
+                            <div class="text-xs mt-1">
+                                (<?= date('d.m', strtotime($prev_start)) ?> - <?= date('d.m', strtotime($prev_end)) ?>)
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold"><?= number_format($prev_total_cost, 0, ',', ' ') ?> ₸</div>
+                            <div class="text-sm opacity-90">Расходы в пред. периоде</div>
+                            <div class="text-xs mt-1">
+                                Тренд: <?= $cost_trend >= 0 ? '+' : '' ?><?= $cost_trend ?>%
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold"><?= number_format($prev_avg_cost, 0, ',', ' ') ?> ₸</div>
+                            <div class="text-sm opacity-90">Средний расход ранее</div>
+                            <div class="text-xs mt-1">
+                                Тренд: <?= $avg_trend >= 0 ? '+' : '' ?><?= $avg_trend ?>%
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -321,10 +486,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                         </table>
                     </div>
                 </div>
-
             </div>
         </div>
-    </div>
 
     <script>
         // Status Chart

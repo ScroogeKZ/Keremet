@@ -82,7 +82,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Аналитика - CRM</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
@@ -174,8 +174,8 @@ try {
             <!-- Top Header -->
             <header class="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center justify-between px-8">
                 <div>
-                    <h2 class="text-2xl font-bold text-gray-900">Аналитика и метрики</h2>
-                    <p class="text-sm text-gray-600">Детальные показатели эффективности логистики</p>
+                    <h2 class="text-2xl font-bold text-gray-900">Аналитика логистических расходов</h2>
+                    <p class="text-sm text-gray-600">Контроль и анализ затрат отдела логистики</p>
                 </div>
                 <div class="flex items-center space-x-4">
                     <a href="/" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center">
@@ -191,397 +191,153 @@ try {
             </header>
 
             <!-- Content Area -->
-            <div class="flex-1 overflow-auto bg-gray-50 p-8">
-                        <a href="/crm/analytics.php" class="border-blue-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            <i class="fas fa-chart-bar mr-2"></i>Аналитика
-                        </a>
+            <div class="flex-1 overflow-auto bg-gray-50 p-4 md:p-8">
+                <?php if (isset($error)): ?>
+                    <div class="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                        <i class="fas fa-exclamation-triangle mr-2"></i><?= htmlspecialchars($error) ?>
                     </div>
-                </div>
-                <div class="hidden sm:ml-6 sm:flex sm:items-center">
-                    <a href="/crm/logout.php" class="text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-sign-out-alt mr-1"></i>Выход
-                    </a>
-                </div>
-            </div>
-        </div>
-    </nav>
+                <?php endif; ?>
 
-    <!-- Main Content -->
-    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <!-- Page header -->
-        <div class="mb-8">
-            <h2 class="text-3xl font-bold text-gray-900">Аналитика и отчеты</h2>
-            <p class="mt-2 text-gray-600">Подробная аналитика работы логистической компании</p>
-        </div>
-
-        <?php if (isset($error)): ?>
-            <div class="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                <i class="fas fa-exclamation-triangle mr-2"></i><?= htmlspecialchars($error) ?>
-            </div>
-        <?php endif; ?>
-
-        <!-- Key Metrics -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white overflow-hidden shadow rounded-lg">
-                <div class="p-5">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-box text-blue-500 text-2xl"></i>
-                        </div>
-                        <div class="ml-5 w-0 flex-1">
-                            <dl>
-                                <dt class="text-sm font-medium text-gray-500 truncate">Всего заказов</dt>
-                                <dd class="text-lg font-semibold text-gray-900"><?= $stats['total_orders'] ?></dd>
-                            </dl>
+                <!-- Статистические карточки -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+                    <div class="bg-white p-4 md:p-6 rounded-lg shadow hover:shadow-lg transition-shadow duration-200">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-box text-blue-600 text-xl md:text-2xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-500">Всего заказов</p>
+                                <p class="text-xl md:text-2xl font-semibold text-gray-900"><?= $stats['total_orders'] ?></p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            <div class="bg-white overflow-hidden shadow rounded-lg">
-                <div class="p-5">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-check-circle text-green-500 text-2xl"></i>
+                    <div class="bg-white p-4 md:p-6 rounded-lg shadow hover:shadow-lg transition-shadow duration-200">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-check-circle text-green-600 text-xl md:text-2xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-500">Завершено</p>
+                                <p class="text-xl md:text-2xl font-semibold text-gray-900"><?= $stats['completed_orders'] ?></p>
+                            </div>
                         </div>
-                        <div class="ml-5 w-0 flex-1">
-                            <dl>
-                                <dt class="text-sm font-medium text-gray-500 truncate">Завершено</dt>
-                                <dd class="text-lg font-semibold text-gray-900"><?= $stats['completed_orders'] ?></dd>
-                            </dl>
+                    </div>
+
+                    <div class="bg-white p-4 md:p-6 rounded-lg shadow hover:shadow-lg transition-shadow duration-200">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-tenge text-purple-600 text-xl md:text-2xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-500">Расходы на логистику</p>
+                                <p class="text-lg md:text-2xl font-semibold text-gray-900"><?= number_format($stats['total_costs'], 0, '.', ' ') ?> ₸</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-4 md:p-6 rounded-lg shadow hover:shadow-lg transition-shadow duration-200">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-chart-line text-yellow-600 text-xl md:text-2xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-500">Средний расход за заказ</p>
+                                <p class="text-lg md:text-2xl font-semibold text-gray-900"><?= number_format($stats['avg_cost_per_order'], 0, '.', ' ') ?> ₸</p>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="bg-white overflow-hidden shadow rounded-lg">
-                <div class="p-5">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-dollar-sign text-purple-500 text-2xl"></i>
-                        </div>
-                        <div class="ml-5 w-0 flex-1">
-                            <dl>
-                                <dt class="text-sm font-medium text-gray-500 truncate">Общие расходы</dt>
-                                <dd class="text-lg font-semibold text-gray-900"><?= number_format($stats['total_costs'], 0, '.', ' ') ?> ₸</dd>
-                            </dl>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white overflow-hidden shadow rounded-lg">
-                <div class="p-5">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-chart-line text-yellow-500 text-2xl"></i>
-                        </div>
-                        <div class="ml-5 w-0 flex-1">
-                            <dl>
-                                <dt class="text-sm font-medium text-gray-500 truncate">Средние расходы</dt>
-                                <dd class="text-lg font-semibold text-gray-900"><?= number_format($stats['avg_cost_per_order'], 0, '.', ' ') ?> ₸</dd>
-                            </dl>
+                <!-- Дополнительная аналитика -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
+                    <!-- Эффективность доставки -->
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                            <i class="fas fa-shipping-fast text-blue-600 mr-2"></i>
+                            Контроль заказов
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-600">Процент завершения</span>
+                                <span class="text-sm font-semibold text-green-600">
+                                    <?= $stats['total_orders'] > 0 ? round(($stats['completed_orders'] / $stats['total_orders']) * 100, 1) : 0 ?>%
+                                </span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-600">В работе</span>
+                                <span class="text-sm font-semibold text-yellow-600"><?= $stats['processing_orders'] ?></span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-600">Новые заказы</span>
+                                <span class="text-sm font-semibold text-blue-600"><?= $stats['new_orders'] ?></span>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
 
-        <!-- Charts Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <!-- Monthly Revenue Chart -->
-            <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-300">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-medium text-gray-900">Расходы на логистику по месяцам</h3>
-                    <div class="flex items-center space-x-2">
-                        <span class="text-sm text-gray-500" id="monthlyTotal">Всего: <?= number_format($stats['total_costs'], 0, '.', ' ') ?> ₸</span>
-                        <button class="text-blue-600 hover:text-blue-800" onclick="refreshMonthlyChart()">
-                            <i class="fas fa-sync-alt"></i>
-                        </button>
-                    </div>
-                </div>
-                <div style="position: relative; height: 300px; width: 100%;">
-                    <canvas id="monthlyCostsChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Status Distribution -->
-            <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-300">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-medium text-gray-900">Распределение заказов по статусам</h3>
-                    <div class="flex items-center space-x-2">
-                        <span class="text-sm text-gray-500">Обновлено: <span id="lastUpdate"><?= date('H:i') ?></span></span>
-                        <button class="text-blue-600 hover:text-blue-800" onclick="refreshStatusChart()">
-                            <i class="fas fa-sync-alt"></i>
-                        </button>
-                    </div>
-                </div>
-                <div style="position: relative; height: 300px; width: 100%;">
-                    <canvas id="statusChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Real-time Stats Bar -->
-        <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 mb-8 text-white">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="text-center">
-                    <div class="text-3xl font-bold" id="liveOrders"><?= $stats['total_orders'] ?></div>
-                    <div class="text-sm opacity-90">Заказов сегодня</div>
-                    <div class="text-xs opacity-75 mt-1">+<span id="newToday">2</span> за последний час</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-3xl font-bold" id="completionRate"><?= $stats['total_orders'] > 0 ? round(($stats['completed_orders'] / $stats['total_orders']) * 100) : 0 ?>%</div>
-                    <div class="text-sm opacity-90">Процент завершения</div>
-                    <div class="text-xs opacity-75 mt-1">
-                        <i class="fas fa-arrow-up mr-1"></i>+5% за неделю
-                    </div>
-                </div>
-                <div class="text-center">
-                    <div class="text-3xl font-bold" id="avgDelivery">3.2</div>
-                    <div class="text-sm opacity-90">Часа средняя доставка</div>
-                    <div class="text-xs opacity-75 mt-1">
-                        <i class="fas fa-arrow-down mr-1"></i>-0.3ч за месяц
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Data Tables -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Top Destinations -->
-            <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-                <div class="px-4 py-5 sm:px-6">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900">Популярные направления</h3>
-                </div>
-                <div class="border-t border-gray-200">
-                    <dl>
-                        <?php foreach ($topDestinations as $destination): ?>
-                        <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                            <dt class="text-sm font-medium text-gray-500"><?= htmlspecialchars($destination['city']) ?></dt>
-                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                                <div class="flex justify-between">
-                                    <span><?= $destination['orders_count'] ?> заказов</span>
-                                    <span class="font-medium"><?= number_format($destination['costs'], 0, '.', ' ') ?> ₸</span>
+                    <!-- Популярные направления -->
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                            <i class="fas fa-map-marker-alt text-red-600 mr-2"></i>
+                            Основные направления доставки
+                        </h3>
+                        <div class="space-y-3">
+                            <?php foreach (array_slice($topDestinations, 0, 5) as $index => $destination): ?>
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full mr-2"><?= $index + 1 ?></span>
+                                    <span class="text-sm text-gray-900"><?= htmlspecialchars($destination['city']) ?></span>
                                 </div>
-                            </dd>
+                                <span class="text-sm font-semibold text-gray-700"><?= $destination['orders_count'] ?></span>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Финансовая сводка -->
+                <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-6 rounded-lg shadow text-white mb-6 md:mb-8">
+                    <h3 class="text-lg font-medium mb-4 flex items-center">
+                        <i class="fas fa-calculator text-white mr-2"></i>
+                        Сводка расходов на логистику
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold"><?= number_format($stats['total_costs'], 0, '.', ' ') ?> ₸</div>
+                            <div class="text-sm opacity-90">Всего потрачено</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold"><?= number_format($stats['avg_cost_per_order'], 0, '.', ' ') ?> ₸</div>
+                            <div class="text-sm opacity-90">Средний расход на заказ</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold"><?= $stats['total_orders'] ?></div>
+                            <div class="text-sm opacity-90">Всего заказов</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Активность по типам грузов -->
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                        <i class="fas fa-boxes text-green-600 mr-2"></i>
+                        Типы грузов
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <?php foreach (array_slice($cargoTypes, 0, 6) as $cargo): ?>
+                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                            <div>
+                                <span class="text-sm font-medium text-gray-900"><?= htmlspecialchars($cargo['cargo_type']) ?></span>
+                                <div class="text-xs text-gray-500"><?= $cargo['orders_count'] ?> заказов</div>
+                            </div>
+                            <span class="text-sm font-semibold text-gray-700">~<?= number_format($cargo['avg_price'], 0, '.', ' ') ?> ₸</span>
                         </div>
                         <?php endforeach; ?>
-                    </dl>
-                </div>
-            </div>
-
-            <!-- Top Cargo Types -->
-            <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-                <div class="px-4 py-5 sm:px-6">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900">Популярные типы грузов</h3>
-                </div>
-                <div class="border-t border-gray-200">
-                    <dl>
-                        <?php foreach ($cargoTypes as $cargo): ?>
-                        <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                            <dt class="text-sm font-medium text-gray-500"><?= htmlspecialchars($cargo['cargo_type']) ?></dt>
-                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                                <div class="flex justify-between">
-                                    <span><?= $cargo['orders_count'] ?> заказов</span>
-                                    <span class="font-medium">~<?= number_format($cargo['avg_price'], 0, '.', ' ') ?> ₸</span>
-                                </div>
-                            </dd>
-                        </div>
-                        <?php endforeach; ?>
-                    </dl>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        let monthlyChart, statusChart;
-
-        // Initialize charts with fixed dimensions and animation
-        function initCharts() {
-            // Monthly Costs Chart
-            const monthlyCtx = document.getElementById('monthlyCostsChart').getContext('2d');
-            monthlyChart = new Chart(monthlyCtx, {
-                type: 'line',
-                data: {
-                    labels: <?= json_encode(array_column($monthlyData, 'month')) ?>,
-                    datasets: [{
-                        label: 'Расходы на логистику',
-                        data: <?= json_encode(array_column($monthlyData, 'costs')) ?>,
-                        borderColor: 'rgb(59, 130, 246)',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 6,
-                        pointHoverRadius: 8,
-                        borderWidth: 3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: {
-                        duration: 1500,
-                        easing: 'easeInOutQuart'
-                    },
-                    interaction: {
-                        intersect: false,
-                        mode: 'index'
-                    },
-                    plugins: {
-                        legend: {
-                            display: true,
-                            labels: {
-                                usePointStyle: true,
-                                padding: 20
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleColor: 'white',
-                            bodyColor: 'white',
-                            cornerRadius: 8,
-                            displayColors: false
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: {
-                                display: false
-                            }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.1)'
-                            },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toLocaleString() + ' ₸';
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
-            // Status Distribution Chart
-            const statusCtx = document.getElementById('statusChart').getContext('2d');
-            statusChart = new Chart(statusCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Новые', 'В работе', 'Завершенные'],
-                    datasets: [{
-                        data: [<?= $stats['new_orders'] ?>, <?= $stats['processing_orders'] ?>, <?= $stats['completed_orders'] ?>],
-                        backgroundColor: [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(245, 158, 11, 0.8)',
-                            'rgba(34, 197, 94, 0.8)'
-                        ],
-                        borderColor: [
-                            'rgb(59, 130, 246)',
-                            'rgb(245, 158, 11)',
-                            'rgb(34, 197, 94)'
-                        ],
-                        borderWidth: 2,
-                        hoverOffset: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: {
-                        duration: 1500,
-                        animateRotate: true,
-                        animateScale: true
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                usePointStyle: true,
-                                padding: 20
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleColor: 'white',
-                            bodyColor: 'white',
-                            cornerRadius: 8,
-                            callbacks: {
-                                label: function(context) {
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = ((context.raw / total) * 100).toFixed(1);
-                                    return context.label + ': ' + context.raw + ' (' + percentage + '%)';
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // Refresh functions
-        function refreshMonthlyChart() {
-            monthlyChart.update('active');
-            document.getElementById('monthlyTotal').innerHTML = 'Обновлено: ' + new Date().toLocaleTimeString();
-            
-            // Simulate data animation
-            setTimeout(() => {
-                document.getElementById('monthlyTotal').innerHTML = 'Всего: <?= number_format($stats['total_costs'], 0, '.', ' ') ?> ₸';
-            }, 2000);
-        }
-
-        function refreshStatusChart() {
-            statusChart.update('active');
-            document.getElementById('lastUpdate').innerHTML = new Date().toLocaleTimeString();
-        }
-
-        // Auto-refresh every 30 seconds
-        setInterval(() => {
-            const randomUpdate = Math.random();
-            if (randomUpdate > 0.7) {
-                refreshStatusChart();
-            }
-            if (randomUpdate < 0.3) {
-                refreshMonthlyChart();
-            }
-        }, 30000);
-
-        // Live counter animations
-        function animateCounters() {
-            const counters = ['liveOrders', 'completionRate', 'avgDelivery'];
-            counters.forEach(id => {
-                const element = document.getElementById(id);
-                const originalValue = element.innerHTML;
-                let currentValue = 0;
-                const targetValue = parseFloat(originalValue);
-                
-                const increment = targetValue / 50;
-                const timer = setInterval(() => {
-                    currentValue += increment;
-                    if (currentValue >= targetValue) {
-                        element.innerHTML = originalValue;
-                        clearInterval(timer);
-                    } else {
-                        if (id === 'completionRate') {
-                            element.innerHTML = Math.floor(currentValue) + '%';
-                        } else if (id === 'avgDelivery') {
-                            element.innerHTML = currentValue.toFixed(1);
-                        } else {
-                            element.innerHTML = Math.floor(currentValue);
-                        }
-                    }
-                }, 50);
-            });
-        }
-
-        // Initialize everything when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            initCharts();
-            setTimeout(animateCounters, 500);
-        });
-    </script>
 </body>
 </html>

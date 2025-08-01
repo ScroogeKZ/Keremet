@@ -18,7 +18,7 @@ class Setting
      */
     public function get($key, $default = null)
     {
-        $sql = "SELECT setting_value, setting_type FROM settings WHERE setting_key = ?";
+        $sql = "SELECT value, type FROM settings WHERE key = ?";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$key]);
         $result = $stmt->fetch();
@@ -27,7 +27,7 @@ class Setting
             return $default;
         }
         
-        return $this->convertValue($result['setting_value'], $result['setting_type']);
+        return $this->convertValue($result['value'], $result['type']);
     }
 
     /**
@@ -35,23 +35,20 @@ class Setting
      */
     public function set($key, $value, $type = 'string', $category = 'system', $description = '', $userId = null)
     {
-        $sql = "INSERT INTO settings (setting_key, setting_value, setting_type, category, description, updated_by) 
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT (setting_key) 
+        $sql = "INSERT INTO settings (key, value, type, category, created_at, updated_at) 
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT (key) 
                 DO UPDATE SET 
-                    setting_value = EXCLUDED.setting_value,
-                    setting_type = EXCLUDED.setting_type,
-                    updated_at = CURRENT_TIMESTAMP,
-                    updated_by = EXCLUDED.updated_by";
+                    value = EXCLUDED.value,
+                    type = EXCLUDED.type,
+                    updated_at = CURRENT_TIMESTAMP";
         
         $stmt = $this->db->prepare($sql);
         return $stmt->execute([
             $key,
             $this->prepareValue($value, $type),
             $type,
-            $category,
-            $description,
-            $userId
+            $category
         ]);
     }
 
@@ -60,17 +57,17 @@ class Setting
      */
     public function getByCategory($category)
     {
-        $sql = "SELECT * FROM settings WHERE category = ? ORDER BY setting_key";
+        $sql = "SELECT * FROM settings WHERE category = ? ORDER BY key";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$category]);
         $results = $stmt->fetchAll();
         
         $settings = [];
         foreach ($results as $result) {
-            $settings[$result['setting_key']] = [
-                'value' => $this->convertValue($result['setting_value'], $result['setting_type']),
-                'type' => $result['setting_type'],
-                'description' => $result['description'],
+            $settings[$result['key']] = [
+                'value' => $this->convertValue($result['value'], $result['type']),
+                'type' => $result['type'],
+                'created_at' => $result['created_at'],
                 'updated_at' => $result['updated_at']
             ];
         }
@@ -83,17 +80,17 @@ class Setting
      */
     public function getAll()
     {
-        $sql = "SELECT * FROM settings ORDER BY category, setting_key";
+        $sql = "SELECT * FROM settings ORDER BY category, key";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         $results = $stmt->fetchAll();
         
         $settings = [];
         foreach ($results as $result) {
-            $settings[$result['category']][$result['setting_key']] = [
-                'value' => $this->convertValue($result['setting_value'], $result['setting_type']),
-                'type' => $result['setting_type'],
-                'description' => $result['description'],
+            $settings[$result['category']][$result['key']] = [
+                'value' => $this->convertValue($result['value'], $result['type']),
+                'type' => $result['type'],
+                'created_at' => $result['created_at'],
                 'updated_at' => $result['updated_at']
             ];
         }
